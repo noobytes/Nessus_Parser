@@ -397,6 +397,12 @@ def override_result(
         connection.close()
 
 
+# Sentinel value used as finding_id for validation_runs that are not linked to a
+# findings row (e.g. manual overrides). No FK constraint exists on this column,
+# so 0 is safe; a future schema migration can make the column nullable if needed.
+_MANUAL_OVERRIDE_FINDING_ID = 0
+
+
 def _insert_validation_run(
     connection,
     plugin_id: int,
@@ -431,7 +437,7 @@ def _insert_validation_run(
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            0,
+            _MANUAL_OVERRIDE_FINDING_ID,
             plugin_id,
             host,
             port,

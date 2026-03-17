@@ -8,15 +8,15 @@ from nessus_parser.db.connection import connect
 
 
 def import_nessus_scan(db_path: Path, scan_path: Path, store_findings: bool = False, project_name: str = "default") -> int:
-    tree = etree.parse(scan_path)
-    root = tree.getroot()
     processed = 0
+    current_host = ""
     connection = connect(db_path)
     try:
-        for report_host in root.findall(".//ReportHost"):
-            host = report_host.attrib.get("name", "")
-            for report_item in report_host.findall("ReportItem"):
-                _upsert_plugin_from_report_item(connection, report_item, scan_path)
+        for event, elem in etree.iterparse(scan_path, events=("start", "end")):
+            if event == "start" and elem.tag == "ReportHost":
+                current_host = elem.attrib.get("name", "")
+            elif event == "end" and elem.tag == "ReportItem":
+                _upsert_plugin_from_report_item(connection, elem, scan_path)
                 if store_findings:
                     connection.execute(
                         """
@@ -34,17 +34,20 @@ def import_nessus_scan(db_path: Path, scan_path: Path, store_findings: bool = Fa
                         """,
                         (
                             scan_path.name,
-                            host,
-                            int(report_item.attrib.get("port", "0") or 0),
-                            report_item.attrib.get("protocol"),
-                            int(report_item.attrib["pluginID"]),
-                            report_item.attrib.get("pluginName", ""),
-                            report_item.attrib.get("severity"),
-                            _child_text(report_item, "plugin_output"),
+                            current_host,
+                            int(elem.attrib.get("port", "0") or 0),
+                            elem.attrib.get("protocol"),
+                            int(elem.attrib["pluginID"]),
+                            elem.attrib.get("pluginName", ""),
+                            elem.attrib.get("severity"),
+                            _child_text(elem, "plugin_output"),
                             project_name,
                         ),
                     )
                 processed += 1
+                elem.clear()
+            elif event == "end" and elem.tag == "ReportHost":
+                elem.clear()
         connection.commit()
         return processed
     finally:
@@ -164,39 +167,38 @@ def load_scan_targets(
     scan_path: Path,
     plugin_id: int,
 ) -> dict[str, object] | None:
-    tree = etree.parse(scan_path)
-    root = tree.getroot()
     metadata: dict[str, object] | None = None
     targets: OrderedDict[tuple[str, int, str | None], dict[str, object]] = OrderedDict()
+    current_host = ""
 
-    for report_host in root.findall(".//ReportHost"):
-        host = report_host.attrib.get("name", "")
-        for report_item in report_host.findall("ReportItem"):
-            current_plugin_id = int(report_item.attrib["pluginID"])
-            if current_plugin_id != plugin_id:
-                continue
-
-            if metadata is None:
-                metadata = {
-                    "plugin_id": plugin_id,
-                    "plugin_name": report_item.attrib.get("pluginName", ""),
-                    "severity": report_item.attrib.get("severity"),
-                    "description": _child_text(report_item, "description"),
-                    "synopsis": _child_text(report_item, "synopsis"),
-                    "solution": _child_text(report_item, "solution"),
-                }
-
-            port = int(report_item.attrib.get("port", "0") or 0)
-            protocol = report_item.attrib.get("protocol")
-            key = (host, port, protocol)
-            if key not in targets:
-                targets[key] = {
-                    "host": host,
-                    "port": port,
-                    "protocol": protocol,
-                    "severity": report_item.attrib.get("severity"),
-                    "plugin_output": _child_text(report_item, "plugin_output"),
-                }
+    for event, elem in etree.iterparse(scan_path, events=("start", "end")):
+        if event == "start" and elem.tag == "ReportHost":
+            current_host = elem.attrib.get("name", "")
+        elif event == "end" and elem.tag == "ReportItem":
+            if int(elem.attrib["pluginID"]) == plugin_id:
+                port = int(elem.attrib.get("port", "0") or 0)
+                protocol = elem.attrib.get("protocol")
+                if metadata is None:
+                    metadata = {
+                        "plugin_id": plugin_id,
+                        "plugin_name": elem.attrib.get("pluginName", ""),
+                        "severity": elem.attrib.get("severity"),
+                        "description": _child_text(elem, "description"),
+                        "synopsis": _child_text(elem, "synopsis"),
+                        "solution": _child_text(elem, "solution"),
+                    }
+                key = (current_host, port, protocol)
+                if key not in targets:
+                    targets[key] = {
+                        "host": current_host,
+                        "port": port,
+                        "protocol": protocol,
+                        "severity": elem.attrib.get("severity"),
+                        "plugin_output": _child_text(elem, "plugin_output"),
+                    }
+            elem.clear()
+        elif event == "end" and elem.tag == "ReportHost":
+            elem.clear()
 
     if metadata is None:
         return None
@@ -210,20 +212,22 @@ def list_scan_plugin_ids(
     include_informational: bool = False,
     min_severity: int | None = None,
 ) -> list[int]:
-    tree = etree.parse(scan_path)
-    root = tree.getroot()
     plugin_ids: set[int] = set()
-    for report_item in root.findall(".//ReportItem"):
-        severity_val = report_item.attrib.get("severity")
-        if min_severity is not None:
-            try:
-                if severity_val is not None and int(severity_val) < min_severity:
-                    continue
-            except ValueError:
-                pass
-        elif not include_informational and severity_val == "0":
-            continue
-        plugin_ids.add(int(report_item.attrib["pluginID"]))
+    for event, elem in etree.iterparse(scan_path, events=("end",)):
+        if elem.tag == "ReportItem":
+            severity_val = elem.attrib.get("severity")
+            skip = False
+            if min_severity is not None:
+                try:
+                    if severity_val is not None and int(severity_val) < min_severity:
+                        skip = True
+                except ValueError:
+                    pass
+            elif not include_informational and severity_val == "0":
+                skip = True
+            if not skip:
+                plugin_ids.add(int(elem.attrib["pluginID"]))
+            elem.clear()
     return sorted(plugin_ids)
 
 
