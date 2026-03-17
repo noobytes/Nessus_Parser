@@ -60,7 +60,7 @@ def main() -> None:
     parser.add_argument("--plugin-id", dest="plugin_id_flag", type=int)
     parser.add_argument("--plugin-ids", dest="plugin_ids_filter")
     parser.add_argument("--plugin-limit", dest="plugin_limit", type=int)
-    parser.add_argument("--include-informational", action="store_true")
+    parser.add_argument("--include-informational", action="store_true", default=True)
     parser.add_argument(
         "--min-severity",
         dest="min_severity",
