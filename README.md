@@ -1,8 +1,12 @@
 # nessus-parser
 
-A local-first CLI for validating Nessus vulnerability findings through active verification. Instead of trusting scanner output at face value, each finding is re-probed using targeted commands (curl, nmap, banner grabs) to confirm whether the vulnerability is real, patched, or unreachable — producing a triage-ready report.
+**Stop chasing false positives. Confirm what's actually exploitable.**
 
-**2,890 validation playbooks** included out of the box, covering critical through low severity findings across MySQL, GitLab, Apache Tomcat, Fortinet, Splunk, WordPress, Confluence, Jenkins, PHP, SAP, WebSphere, and hundreds more.
+Nessus reports vulnerabilities based on version detection and plugin logic — but that does not mean every finding is real. Services get patched without version strings changing, ports get firewalled, and products get miscounted. nessus-parser actively re-probes each finding to answer the one question that matters: *is this vulnerability actually reachable and confirmed on this host right now?*
+
+It is a local-first CLI tool built for penetration testers and vulnerability assessment teams. Feed it a `.nessus` scan file, and it will run targeted verification commands — `curl`, `nmap`, banner grabs, version API calls — directly against each host and port Nessus reported. Each finding comes back with a clear verdict: `validated`, `not_validated`, `port_closed`, `auth_required`, and more. The result is a triage-ready report that tells you exactly where to focus your time.
+
+**2,890 validation playbooks** included out of the box, covering critical through low severity findings across MySQL, GitLab, Apache Tomcat, Fortinet, Splunk, WordPress, Confluence, Jenkins, PHP, SAP, WebSphere, and hundreds more. No internet connection required — everything runs from the analyst machine against the target environment.
 
 ---
 
