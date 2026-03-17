@@ -14,12 +14,32 @@ from nessus_parser.services.validation import (
 )
 
 
+def _extract_underlying_items(trigger: str, stdout: str) -> list[str]:
+    """For synthetic validation markers, extract the real items they represent.
+
+    e.g. 'cbc_enabled' → actual CBC cipher names from the nmap output.
+    Returns empty list if the trigger is not a known synthetic marker.
+    """
+    t = trigger.lower()
+    if "cbc" in t:
+        # Extract the specific CBC cipher algorithm names from nmap ssh2-enum-algos output
+        found = re.findall(
+            r'\b((?:aes(?:128|192|256)|3des|blowfish|cast128)-cbc)\b',
+            stdout,
+            re.IGNORECASE,
+        )
+        seen: set[str] = set()
+        return [c.lower() for c in found if not (c.lower() in seen or seen.add(c.lower()))]  # type: ignore[func-returns-value]
+    return []
+
+
 def _extract_highlight_terms(stdout: str, playbook: dict) -> list[str]:
     """Return the specific strings in stdout that justify the validated verdict.
 
     Only includes what actually matched — version pattern captures and
     validated_if literal strings — so the report highlights precisely the
-    evidence, nothing else.
+    evidence, nothing else.  Synthetic markers (e.g. CBC_ENABLED) are
+    expanded into the actual underlying items they represent.
     """
     terms: list[str] = []
     stdout_lower = stdout.lower()
@@ -29,8 +49,6 @@ def _extract_highlight_terms(stdout: str, playbook: dict) -> list[str]:
         try:
             m = re.search(pat, stdout, re.IGNORECASE)
             if m:
-                # Prefer the first capture group (the version number itself);
-                # fall back to the full match for context.
                 term = m.group(1) if m.lastindex and m.lastindex >= 1 else m.group(0)
                 if term:
                     terms.append(term)
@@ -38,12 +56,27 @@ def _extract_highlight_terms(stdout: str, playbook: dict) -> list[str]:
             pass
 
     for term in playbook.get("validated_if", []):
-        if term and term.lower() in stdout_lower:
+        if not term or term.lower() not in stdout_lower:
+            continue
+        underlying = _extract_underlying_items(term, stdout)
+        if underlying:
+            terms.extend(underlying)
+        else:
             terms.append(term)
 
-    # Deduplicate while preserving order
-    seen: set[str] = set()
-    return [t for t in terms if not (t in seen or seen.add(t))]  # type: ignore[func-returns-value]
+    seen2: set[str] = set()
+    return [t for t in terms if not (t in seen2 or seen2.add(t))]  # type: ignore[func-returns-value]
+
+
+def _relevant_lines(stdout: str, highlight_terms: list[str]) -> list[str]:
+    """Return only the lines from stdout that contain at least one highlight term."""
+    if not highlight_terms:
+        return []
+    lower_terms = [t.lower() for t in highlight_terms]
+    return [
+        line for line in stdout.splitlines()
+        if any(lt in line.lower() for lt in lower_terms)
+    ]
 
 
 def build_plugin_report(db_path: Path, plugin_id: int) -> str:
@@ -151,16 +184,18 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
                 stdout = (row[8] or "").strip()
                 stderr = (row[9] or "").strip()
                 playbook = get_playbook(db_path, plugin_id)
+                output = stdout or stderr
                 highlight_terms = (
-                    _extract_highlight_terms(stdout or stderr, playbook)
+                    _extract_highlight_terms(output, playbook)
                     if playbook else []
                 )
+                relevant = _relevant_lines(output, highlight_terms)
                 validated_sample = {
                     "host": row[0],
                     "port": row[1],
                     "command": row[5],
-                    "stdout": stdout,
-                    "stderr": stderr,
+                    "stdout": output,
+                    "relevant_lines": relevant,
                     "highlight_terms": highlight_terms,
                 }
                 break
@@ -223,12 +258,13 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
     .button { padding: 0.5rem 0.8rem; border: 1px solid #b9a88f; background: #e8dcc9; color: #2a211c; font: 0.85rem/1.2 'Trebuchet MS', sans-serif; cursor: pointer; }
     .group-title { font: 1.15rem/1.2 'Trebuchet MS', sans-serif; margin: 1.75rem 0 0.75rem; color: #5a4637; text-transform: uppercase; letter-spacing: 0.04em; }
     .evidence-toggle { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.85rem; cursor: pointer; font: 0.85rem/1.2 'Trebuchet MS', sans-serif; color: #3a5a8a; border: 1px solid #3a5a8a; padding: 0.25rem 0.6rem; background: #eef3fa; user-select: none; }
-    .evidence-toggle .toggle-icon { font-size: 1rem; font-weight: 700; line-height: 1; transition: transform 0.15s; display: inline-block; }
-    .evidence-toggle.open .toggle-icon { transform: rotate(45deg); }
+    .evidence-toggle .toggle-icon { font-size: 1rem; font-weight: 700; line-height: 1; }
     .evidence-box { display: none; margin-top: 0.5rem; border: 1px solid #ccc; background: #ffffff; color: #000000; font-family: 'Courier New', Courier, monospace; font-size: 0.82rem; padding: 0.85rem 1rem; white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
     .evidence-box.visible { display: block; }
     .evidence-label { font: 0.78rem/1.2 'Trebuchet MS', sans-serif; color: #6b5748; margin-top: 0.85rem; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
     .ev-highlight { color: #cc0000; font-weight: 700; }
+    .full-output-toggle { font: 0.78rem/1.2 'Trebuchet MS', sans-serif; color: #888; cursor: pointer; margin-top: 0.5rem; display: inline-block; text-decoration: underline; }
+    .full-output-box { display: none; margin-top: 0.4rem; border-top: 1px dashed #ccc; padding-top: 0.5rem; white-space: pre-wrap; word-break: break-word; color: #444; }
   </style>
 </head>
 <body>
@@ -326,16 +362,35 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
         const sample = plugin.validated_sample;
         let evidenceHtml = '';
         if (sample) {
-          const rawOutput = (sample.stdout || sample.stderr || '(no output captured)');
-          const highlighted = highlightEvidence(escapeHtml(rawOutput), sample.highlight_terms || []);
+          const terms = sample.highlight_terms || [];
+          const rawOutput = sample.stdout || '(no output captured)';
+          const relevant = sample.relevant_lines || [];
+
+          // Primary display: relevant lines only (highlighted), or full output if short
+          let primaryText, secondaryText;
+          if (relevant.length > 0 && rawOutput.split('\\n').length > relevant.length + 3) {
+            primaryText = relevant.join('\\n');
+            secondaryText = rawOutput;
+          } else {
+            primaryText = rawOutput;
+            secondaryText = null;
+          }
+
+          const highlightedPrimary = highlightEvidence(escapeHtml(primaryText), terms);
+          const fullOutputHtml = secondaryText
+            ? `<span class="full-output-toggle" onclick="toggleFullOutput('${uid}')">Show full output (${rawOutput.split('\\n').length} lines)</span>
+               <div class="full-output-box" id="full-${uid}">${escapeHtml(secondaryText)}</div>`
+            : '';
+
           evidenceHtml = `
-            <div class="evidence-label">Validated evidence sample &mdash; ${escapeHtml(String(sample.host))}:${escapeHtml(String(sample.port))}</div>
+            <div class="evidence-label">Validated evidence &mdash; ${escapeHtml(String(sample.host))}:${escapeHtml(String(sample.port))}</div>
             <div class="evidence-toggle" id="toggle-${uid}" onclick="toggleEvidence('${uid}')">
               <span class="toggle-icon">+</span> Show command output
             </div>
             <div class="evidence-box" id="box-${uid}"><strong>Command:</strong> ${escapeHtml(sample.command || '')}
 
-${highlighted}</div>`;
+${highlightedPrimary}
+${fullOutputHtml}</div>`;
         }
 
         const sectionHtml = `
@@ -446,8 +501,19 @@ ${highlighted}</div>`;
       if (!toggle || !box) return;
       const opening = !box.classList.contains('visible');
       box.classList.toggle('visible', opening);
-      toggle.classList.toggle('open', opening);
-      toggle.querySelector('.toggle-icon').textContent = opening ? '+' : '+';
+      toggle.querySelector('.toggle-icon').textContent = opening ? '−' : '+';
+    }
+
+    function toggleFullOutput(uid) {
+      const el = document.getElementById('full-' + uid);
+      if (!el) return;
+      const opening = el.style.display !== 'block';
+      el.style.display = opening ? 'block' : 'none';
+      const tog = el.previousElementSibling;
+      if (tog && tog.classList.contains('full-output-toggle')) {
+        const lines = (el.textContent.match(/\\n/g) || []).length + 1;
+        tog.textContent = opening ? 'Hide full output' : `Show full output (${lines} lines)`;
+      }
     }
 
     // Highlight only the specific terms that justify the validated verdict for this finding.
