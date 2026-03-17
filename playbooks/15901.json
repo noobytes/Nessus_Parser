@@ -3,8 +3,8 @@
   "finding_name": "SSL Certificate Expiry",
   "service": "tls",
   "port_logic": "use_scan_port",
-  "command_template": "openssl s_client -connect {host}:{port} {openssl_tls_args} -brief </dev/null 2>&1",
-  "timeout_seconds": 30,
+  "command_template": "testssl.sh --color 0 -S https://{host}:{port}",
+  "timeout_seconds": 45,
   "allowed_ports": [],
   "blocked_ports": [],
   "starttls_protocol_map": {
@@ -18,11 +18,14 @@
     "5432": "postgres",
     "587": "smtp"
   },
-  "fallback_commands": [],
+  "fallback_commands": [
+    "openssl s_client -connect {host}:{port} {openssl_tls_args} -brief </dev/null 2>&1"
+  ],
   "version_rule": {},
   "validated_if": [
-    "verify error:num=10",
-    "certificate has expired"
+    "days ago",
+    "certificate has expired",
+    "verify error:num=10"
   ],
   "validated_if_absent": [],
   "not_validated_if": [
@@ -34,18 +37,23 @@
     "timed out",
     "no route to host",
     "temporary failure in name resolution",
-    "bio_lookup_ex:system lib"
+    "bio_lookup_ex:system lib",
+    "failed to resolve",
+    "network is unreachable"
   ],
   "failure_reason_map": {
     "connection refused": "port_closed",
     "timed out": "port_filtered",
     "no route to host": "host_down",
     "temporary failure in name resolution": "host_down",
-    "bio_lookup_ex:system lib": "host_down"
+    "bio_lookup_ex:system lib": "host_down",
+    "failed to resolve": "dns_failure",
+    "network is unreachable": "host_unreachable"
   },
   "references": [
+    "https://testssl.sh",
     "https://docs.openssl.org/3.6/man1/openssl-s_client/"
   ],
   "reviewed_by": "analyst",
-  "last_verified": "2026-03-16"
+  "last_verified": "2026-03-17"
 }

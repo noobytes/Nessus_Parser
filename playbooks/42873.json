@@ -3,8 +3,8 @@
   "finding_name": "SSL Medium Strength Cipher Suites Supported (SWEET32)",
   "service": "tls",
   "port_logic": "use_scan_port",
-  "command_template": "sslscan --no-colour --show-ciphers {sslscan_starttls_args} {host}:{port}",
-  "timeout_seconds": 45,
+  "command_template": "testssl.sh --color 0 --sweet32 https://{host}:{port}",
+  "timeout_seconds": 60,
   "allowed_ports": [],
   "blocked_ports": [],
   "starttls_protocol_map": {
@@ -19,16 +19,11 @@
     "587": "smtp"
   },
   "validated_if": [
-    "3des",
-    "des-cbc3",
-    "sweet32"
+    "VULNERABLE"
   ],
   "validated_if_absent": [],
   "not_validated_if": [
-    "unsupported protocol",
-    "handshake failure",
-    "preferred",
-    "accepted"
+    "not vulnerable"
   ],
   "not_validated_if_present": [],
   "inconclusive_if": [
@@ -36,19 +31,29 @@
     "timed out",
     "no route to host",
     "could not open a socket",
-    "operation not permitted"
+    "operation not permitted",
+    "failed to resolve",
+    "0 hosts up",
+    "host seems down"
   ],
   "failure_reason_map": {
     "connection refused": "port_closed",
     "timed out": "port_filtered",
     "no route to host": "host_down",
     "could not open a socket": "inconclusive",
-    "operation not permitted": "inconclusive"
+    "operation not permitted": "inconclusive",
+    "failed to resolve": "dns_failure",
+    "0 hosts up": "host_down",
+    "host seems down": "host_down"
   },
+  "fallback_commands": [
+    "sslscan --no-colour --show-ciphers {sslscan_starttls_args} {host}:{port}"
+  ],
   "references": [
-    "https://github.com/rbsec/sslscan",
-    "https://sweet32.info/"
+    "https://testssl.sh",
+    "https://sweet32.info/",
+    "https://github.com/rbsec/sslscan"
   ],
   "reviewed_by": "analyst",
-  "last_verified": "2026-03-16"
+  "last_verified": "2026-03-17"
 }

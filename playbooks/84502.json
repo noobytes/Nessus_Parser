@@ -3,32 +3,19 @@
   "finding_name": "HSTS Missing From HTTPS Server",
   "service": "https",
   "port_logic": "use_scan_port",
-  "command_template": "curl -k -I --silent --show-error --max-time 15 https://{host}:{port}/",
-  "timeout_seconds": 20,
-  "allowed_ports": [
-    443,
-    444,
-    445,
-    448,
-    449,
-    5443,
-    6443,
-    7443,
-    8443,
-    8843,
-    9443,
-    10443
-  ],
+  "command_template": "testssl.sh --color 0 --headers https://{host}:{port}",
+  "timeout_seconds": 45,
+  "allowed_ports": [],
   "blocked_ports": [],
   "starttls_protocol_map": {},
-  "validated_if": [],
-  "validated_if_absent": [
-    "strict-transport-security:"
+  "validated_if": [
+    "not offered"
   ],
-  "not_validated_if": [],
-  "not_validated_if_present": [
-    "strict-transport-security:"
+  "validated_if_absent": [],
+  "not_validated_if": [
+    "max-age"
   ],
+  "not_validated_if_present": [],
   "inconclusive_if": [
     "connection refused",
     "timed out",
@@ -43,13 +30,14 @@
     "failed to connect": "host_down",
     "empty reply from server": "inconclusive"
   },
+  "fallback_commands": [
+    "curl -k -I --silent --show-error --max-time 15 https://{host}:{port}/"
+  ],
+  "version_rule": {},
   "references": [
+    "https://testssl.sh",
     "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security"
   ],
   "reviewed_by": "analyst",
-  "last_verified": "2026-03-16",
-  "fallback_commands_json": [
-    "nmap -Pn --script http-headers,http-generator,http-server-header,http-title -p {port} {host}",
-    "nmap -Pn -sV --version-light -p {port} {host}"
-  ]
+  "last_verified": "2026-03-17"
 }

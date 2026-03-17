@@ -3,8 +3,8 @@
   "finding_name": "SSL Certificate Cannot Be Trusted",
   "service": "tls",
   "port_logic": "use_scan_port",
-  "command_template": "openssl s_client -connect {host}:{port} {openssl_tls_args} -brief </dev/null",
-  "timeout_seconds": 30,
+  "command_template": "testssl.sh --color 0 -S https://{host}:{port}",
+  "timeout_seconds": 45,
   "allowed_ports": [],
   "blocked_ports": [],
   "starttls_protocol_map": {
@@ -19,17 +19,17 @@
     "587": "smtp"
   },
   "validated_if": [
+    "Chain of trust",
+    "self signed",
+    "self-signed",
+    "untrusted",
     "verify error:num=",
-    "verification error:",
     "certificate has expired",
-    "unable to verify the first certificate",
-    "unable to get local issuer certificate",
-    "self-signed certificate"
+    "unable to get local issuer certificate"
   ],
   "validated_if_absent": [],
   "not_validated_if": [
-    "unsupported protocol",
-    "handshake failure",
+    "Chain of trust    ok",
     "verification: ok"
   ],
   "not_validated_if_present": [],
@@ -47,9 +47,13 @@
     "bio_lookup_ex:system lib": "host_down",
     "temporary failure in name resolution": "host_down"
   },
+  "fallback_commands": [
+    "openssl s_client -connect {host}:{port} {openssl_tls_args} -brief </dev/null"
+  ],
   "references": [
+    "https://testssl.sh",
     "https://docs.openssl.org/3.6/man1/openssl-s_client/"
   ],
   "reviewed_by": "analyst",
-  "last_verified": "2026-03-16"
+  "last_verified": "2026-03-17"
 }
