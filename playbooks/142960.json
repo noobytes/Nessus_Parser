@@ -3,53 +3,45 @@
   "finding_name": "HSTS Missing From HTTPS Server (RFC 6797)",
   "service": "https",
   "port_logic": "use_scan_port",
-  "command_template": "curl -k -I --silent --show-error --max-time 15 https://{host}:{port}/",
-  "timeout_seconds": 20,
-  "allowed_ports": [
-    443,
-    444,
-    445,
-    448,
-    449,
-    5443,
-    6443,
-    7443,
-    8443,
-    8843,
-    9443,
-    10443
-  ],
+  "command_template": "testssl.sh --headers https://{host}:{port}",
+  "timeout_seconds": 45,
+  "allowed_ports": [],
   "blocked_ports": [],
   "starttls_protocol_map": {},
-  "validated_if": [],
-  "validated_if_absent": [
-    "strict-transport-security:"
+  "fallback_commands": [
+    "curl -k -I --silent --show-error --max-time 15 https://{host}:{port}/"
   ],
-  "not_validated_if": [],
-  "not_validated_if_present": [
-    "strict-transport-security:"
+  "version_rule": {},
+  "validated_if": [
+    "not offered"
   ],
+  "validated_if_absent": [],
+  "not_validated_if": [
+    "max-age"
+  ],
+  "not_validated_if_present": [],
   "inconclusive_if": [
     "connection refused",
     "timed out",
     "could not resolve host",
     "failed to connect",
-    "empty reply from server"
+    "unable to connect",
+    "no route to host"
   ],
   "failure_reason_map": {
     "connection refused": "port_closed",
     "timed out": "port_filtered",
-    "could not resolve host": "host_down",
+    "could not resolve host": "dns_failure",
     "failed to connect": "host_down",
-    "empty reply from server": "inconclusive"
+    "unable to connect": "port_closed",
+    "no route to host": "host_unreachable"
   },
+  "analyst_note": "testssl.sh --headers shows all HTTP security headers. HSTS confirmed missing when output shows 'not offered' next to HTTP Strict Transport Security. Falls back to curl -I if testssl.sh is unavailable.",
   "references": [
-    "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security"
+    "https://testssl.sh",
+    "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security",
+    "https://datatracker.ietf.org/doc/html/rfc6797"
   ],
   "reviewed_by": "analyst",
-  "last_verified": "2026-03-16",
-  "fallback_commands_json": [
-    "nmap -Pn --script http-headers,http-generator,http-server-header,http-title -p {port} {host}",
-    "nmap -Pn -sV --version-light -p {port} {host}"
-  ]
+  "last_verified": "2026-03-17"
 }
