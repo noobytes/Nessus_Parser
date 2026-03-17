@@ -379,7 +379,7 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
           const highlightedPrimary = highlightEvidence(escapeHtml(primaryText), terms);
           const fullOutputHtml = secondaryText
             ? `<span class="full-output-toggle" onclick="toggleFullOutput('${uid}')">Show full output (${rawOutput.split('\\n').length} lines)</span>
-               <div class="full-output-box" id="full-${uid}">${escapeHtml(secondaryText)}</div>`
+               <div class="full-output-box" id="full-${uid}">${highlightEvidence(escapeHtml(secondaryText), terms)}</div>`
             : '';
 
           evidenceHtml = `
