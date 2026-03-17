@@ -1,0 +1,70 @@
+{
+  "plugin_id": 277650,
+  "finding_name": "Remote Services Not Using Post-Quantum Ciphers",
+  "service": "tls",
+  "port_logic": "use_scan_port",
+  "command_template": "testssl.sh --color 0 --groups https://{host}:{port}",
+  "timeout_seconds": 60,
+  "allowed_ports": [],
+  "blocked_ports": [],
+  "starttls_protocol_map": {
+    "21": "ftp",
+    "25": "smtp",
+    "110": "pop3",
+    "143": "imap",
+    "389": "ldap",
+    "5222": "xmpp",
+    "5269": "xmpp-server",
+    "5432": "postgres",
+    "587": "smtp"
+  },
+  "fallback_commands": [
+    "nmap -Pn -p {port} --script ssl-enum-ciphers {host} 2>&1"
+  ],
+  "version_rule": {},
+  "validated_if": [
+    "post-quantum",
+    "x25519kyber768",
+    "mlkem",
+    "kyber"
+  ],
+  "validated_if_absent": [
+    "mlkem",
+    "kyber",
+    "post-quantum",
+    "x25519kyber768"
+  ],
+  "not_validated_if": [],
+  "not_validated_if_present": [
+    "mlkem",
+    "kyber",
+    "post-quantum",
+    "x25519kyber768"
+  ],
+  "inconclusive_if": [
+    "connection refused",
+    "timed out",
+    "no route to host",
+    "failed to resolve",
+    "network is unreachable",
+    "operation not permitted",
+    "cannot create af_netlink socket"
+  ],
+  "failure_reason_map": {
+    "connection refused": "port_closed",
+    "timed out": "port_filtered",
+    "no route to host": "host_down",
+    "failed to resolve": "dns_failure",
+    "network is unreachable": "host_unreachable",
+    "operation not permitted": "inconclusive",
+    "cannot create af_netlink socket": "inconclusive"
+  },
+  "analyst_note": "Confirms the service does NOT offer post-quantum key exchange groups (mlkem, kyber, x25519kyber768). testssl.sh --groups lists supported key exchange groups including any PQ hybrids. Absence of PQ group names in output confirms no PQC support. This finding is validated when PQC terms are absent.",
+  "references": [
+    "https://testssl.sh",
+    "https://nmap.org/nsedoc/scripts/ssl-enum-ciphers.html",
+    "https://www.nist.gov/cybersecurity/post-quantum-cryptography"
+  ],
+  "reviewed_by": "analyst",
+  "last_verified": "2026-03-17"
+}

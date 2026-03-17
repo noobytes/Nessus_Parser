@@ -15,12 +15,12 @@ from nessus_parser.services.scans import (
 )
 
 
-def validate_plugin(db_path: Path, plugin_id: int) -> str:
+def validate_plugin(db_path: Path, plugin_id: int, project_name: str = "default") -> str:
     playbook = get_playbook(db_path, plugin_id)
     if playbook is None:
         return f"No playbook found for plugin {plugin_id}"
 
-    targets = get_finding_ids_for_plugin(db_path, plugin_id)
+    targets = get_finding_ids_for_plugin(db_path, plugin_id, project_name=project_name)
     if not targets:
         return f"No findings found for plugin {plugin_id}"
 
@@ -46,8 +46,9 @@ def validate_plugin(db_path: Path, plugin_id: int) -> str:
                     source,
                     stdout,
                     stderr,
-                    exit_code
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    exit_code,
+                    project_name
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         finding_id,
@@ -62,6 +63,7 @@ def validate_plugin(db_path: Path, plugin_id: int) -> str:
                         "",
                         "",
                         None,
+                        project_name,
                     ),
                 )
                 continue
@@ -82,8 +84,9 @@ def validate_plugin(db_path: Path, plugin_id: int) -> str:
                     source,
                     stdout,
                     stderr,
-                    exit_code
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    exit_code,
+                    project_name
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     finding_id,
@@ -98,6 +101,7 @@ def validate_plugin(db_path: Path, plugin_id: int) -> str:
                     execution["stdout"],
                     execution["stderr"],
                     execution["exit_code"],
+                    project_name,
                 ),
             )
             results.append((status, reason, host, port))
@@ -130,6 +134,7 @@ def validate_scan_file(
     scan_path: Path,
     plugin_id: int,
     persist_results: bool = False,
+    project_name: str = "default",
 ) -> str:
     playbook = get_playbook(db_path, plugin_id)
     if playbook is None:
@@ -174,6 +179,7 @@ def validate_scan_file(
                         stderr="",
                         exit_code=None,
                         source="automation",
+                        project_name=project_name,
                     )
                 groups["skipped"].append(f"{host}:{port}")
                 results.append(
@@ -205,6 +211,7 @@ def validate_scan_file(
                     stderr=str(execution["stderr"]),
                     exit_code=execution["exit_code"],
                     source="automation",
+                    project_name=project_name,
                 )
             groups.setdefault(status, []).append(f"{host}:{port}")
             results.append(
@@ -238,6 +245,7 @@ def validate_scan_file_all(
     scan_path: Path,
     plugin_ids: list[int],
     persist_results: bool = False,
+    project_name: str = "default",
 ) -> str:
     scan_plugin_ids = set(list_scan_plugin_ids(scan_path))
     matching_plugin_ids = [plugin_id for plugin_id in plugin_ids if plugin_id in scan_plugin_ids]
@@ -251,6 +259,7 @@ def validate_scan_file_all(
             scan_path,
             plugin_id,
             persist_results=persist_results,
+            project_name=project_name,
         )
         reports.append(report)
     return "\n\n".join(reports)
@@ -273,7 +282,7 @@ def get_matching_scan_playbook_ids(
     return [plugin_id for plugin_id in plugin_ids if plugin_id in scan_plugin_ids]
 
 
-def get_validation_summary(db_path: Path, plugin_id: int) -> list[tuple[str, int]]:
+def get_validation_summary(db_path: Path, plugin_id: int, project_name: str | None = None) -> list[tuple[str, int]]:
     connection = connect(db_path)
     try:
         return list(
@@ -285,13 +294,14 @@ def get_validation_summary(db_path: Path, plugin_id: int) -> list[tuple[str, int
                     SELECT host, port, MAX(id) AS latest_id
                     FROM validation_runs
                     WHERE plugin_id = ?
+                    AND (? IS NULL OR project_name = ?)
                     GROUP BY host, port
                 ) latest
                     ON vr.id = latest.latest_id
                 GROUP BY status
                 ORDER BY count DESC, vr.status ASC
                 """,
-                (plugin_id,),
+                (plugin_id, project_name, project_name),
             )
         )
     finally:
@@ -301,6 +311,7 @@ def get_validation_summary(db_path: Path, plugin_id: int) -> list[tuple[str, int
 def get_latest_validation_results(
     db_path: Path,
     plugin_id: int,
+    project_name: str | None = None,
 ) -> list[tuple[str, int | None, str, str | None, str | None, str, str, str, str | None, str | None]]:
     connection = connect(db_path)
     try:
@@ -323,12 +334,30 @@ def get_latest_validation_results(
                     SELECT host, port, MAX(id) AS latest_id
                     FROM validation_runs
                     WHERE plugin_id = ?
+                    AND (? IS NULL OR project_name = ?)
                     GROUP BY host, port
                 ) latest
                     ON vr.id = latest.latest_id
                 ORDER BY vr.host ASC, vr.port ASC, vr.id ASC
                 """,
-                (plugin_id,),
+                (plugin_id, project_name, project_name),
+            )
+        )
+    finally:
+        connection.close()
+
+
+def list_projects(db_path: Path) -> list[tuple[str, int, str]]:
+    connection = connect(db_path)
+    try:
+        return list(
+            connection.execute(
+                """
+                SELECT project_name, COUNT(*) AS run_count, MAX(executed_at) AS last_run
+                FROM validation_runs
+                GROUP BY project_name
+                ORDER BY last_run DESC
+                """
             )
         )
     finally:
@@ -343,6 +372,7 @@ def override_result(
     status: str,
     reason: str | None,
     analyst_note: str | None,
+    project_name: str = "default",
 ) -> bool:
     connection = connect(db_path)
     try:
@@ -359,6 +389,7 @@ def override_result(
             exit_code=None,
             source="manual",
             analyst_note=analyst_note,
+            project_name=project_name,
         )
         connection.commit()
         return True
@@ -379,6 +410,7 @@ def _insert_validation_run(
     exit_code: int | None,
     source: str,
     analyst_note: str | None = None,
+    project_name: str = "default",
 ) -> None:
     connection.execute(
         """
@@ -394,8 +426,9 @@ def _insert_validation_run(
             source,
             stdout,
             stderr,
-            exit_code
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            exit_code,
+            project_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             0,
@@ -410,6 +443,7 @@ def _insert_validation_run(
             stdout,
             stderr,
             exit_code,
+            project_name,
         ),
     )
 

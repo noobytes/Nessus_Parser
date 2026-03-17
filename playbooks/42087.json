@@ -1,0 +1,55 @@
+{
+  "plugin_id": 42087,
+  "finding_name": "POP3 Service STLS Command Support",
+  "service": "tls",
+  "port_logic": "use_scan_port",
+  "command_template": "openssl s_client -connect {host}:{port} -starttls pop3 -brief </dev/null 2>&1",
+  "timeout_seconds": 30,
+  "allowed_ports": [110, 995],
+  "blocked_ports": [],
+  "starttls_protocol_map": {
+    "110": "pop3"
+  },
+  "fallback_commands": [
+    "curl -k --ssl-reqd --max-time 15 pop3s://{host}:{port}/ 2>&1"
+  ],
+  "version_rule": {},
+  "validated_if": [
+    "connection established",
+    "issuer:",
+    "subject:"
+  ],
+  "validated_if_absent": [],
+  "not_validated_if": [
+    "ssl23_get_server_hello",
+    "unknown protocol",
+    "no stls",
+    "couldn't use ssl"
+  ],
+  "not_validated_if_present": [],
+  "inconclusive_if": [
+    "connection refused",
+    "timed out",
+    "no route to host",
+    "temporary failure in name resolution",
+    "bio_lookup_ex:system lib",
+    "failed to resolve",
+    "network is unreachable"
+  ],
+  "failure_reason_map": {
+    "connection refused": "port_closed",
+    "timed out": "port_filtered",
+    "no route to host": "host_down",
+    "temporary failure in name resolution": "host_down",
+    "bio_lookup_ex:system lib": "host_down",
+    "failed to resolve": "dns_failure",
+    "network is unreachable": "host_unreachable"
+  },
+  "analyst_note": "Confirms the POP3 server supports STLS (TLS upgrade). openssl s_client -starttls pop3 negotiates the upgrade. 'connection established' and certificate fields confirm success.",
+  "references": [
+    "https://docs.openssl.org/3.6/man1/openssl-s_client/",
+    "https://datatracker.ietf.org/doc/html/rfc2595"
+  ],
+  "reviewed_by": "analyst",
+  "last_verified": "2026-03-17"
+}

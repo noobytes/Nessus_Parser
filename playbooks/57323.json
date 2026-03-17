@@ -1,0 +1,57 @@
+{
+  "plugin_id": 57323,
+  "finding_name": "OpenSSL Version Detection",
+  "service": "tls",
+  "port_logic": "use_scan_port",
+  "command_template": "curl -k -I --silent --show-error --max-time 15 https://{host}:{port}/ 2>&1",
+  "timeout_seconds": 30,
+  "allowed_ports": [],
+  "blocked_ports": [],
+  "starttls_protocol_map": {
+    "21": "ftp",
+    "25": "smtp",
+    "110": "pop3",
+    "143": "imap",
+    "389": "ldap",
+    "5222": "xmpp",
+    "5269": "xmpp-server",
+    "5432": "postgres",
+    "587": "smtp"
+  },
+  "fallback_commands": [
+    "nmap -Pn -p {port} --script banner,http-server-header {host} 2>&1",
+    "openssl s_client -connect {host}:{port} {openssl_tls_args} -brief </dev/null 2>&1"
+  ],
+  "version_rule": {},
+  "validated_if": [
+    "openssl/"
+  ],
+  "validated_if_absent": [],
+  "not_validated_if": [
+    "connection refused",
+    "no route to host"
+  ],
+  "not_validated_if_present": [],
+  "inconclusive_if": [
+    "timed out",
+    "temporary failure in name resolution",
+    "failed to resolve",
+    "network is unreachable",
+    "could not connect",
+    "bio_lookup_ex:system lib"
+  ],
+  "failure_reason_map": {
+    "timed out": "port_filtered",
+    "temporary failure in name resolution": "host_down",
+    "failed to resolve": "dns_failure",
+    "network is unreachable": "host_unreachable",
+    "bio_lookup_ex:system lib": "host_down"
+  },
+  "analyst_note": "Detects the OpenSSL version string from HTTP Server headers (e.g. 'Apache/2.4.x OpenSSL/3.x.x'). curl -I reveals the Server response header. nmap http-server-header script also extracts it. The version string 'openssl/' in any output confirms detection.",
+  "references": [
+    "https://docs.openssl.org/",
+    "https://nmap.org/nsedoc/scripts/http-server-header.html"
+  ],
+  "reviewed_by": "analyst",
+  "last_verified": "2026-03-17"
+}

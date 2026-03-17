@@ -25,6 +25,7 @@ from nessus_parser.services.validation import (
     get_matching_scan_playbook_ids,
     get_latest_validation_results,
     get_validation_summary,
+    list_projects,
     override_result,
     validate_scan_file,
 )
@@ -470,6 +471,80 @@ class WorkflowTests(unittest.TestCase):
             created = create_playbook_templates(rows, playbook_dir, overwrite=False)
             self.assertEqual(created, [])
             self.assertEqual(existing.read_text(), '{"existing": true}\n')
+
+
+    def test_project_isolation_validation(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            db_path = tmp_path / "test.sqlite3"
+            initialize_database(db_path)
+
+            override_result(db_path, 84502, "host-a.example", 443, "validated", None, "project A", project_name="project_a")
+            override_result(db_path, 84502, "host-b.example", 443, "not_validated", None, "project B", project_name="project_b")
+
+            results_a = get_latest_validation_results(db_path, 84502, project_name="project_a")
+            results_b = get_latest_validation_results(db_path, 84502, project_name="project_b")
+            results_all = get_latest_validation_results(db_path, 84502, project_name=None)
+
+            self.assertEqual(len(results_a), 1)
+            self.assertEqual(results_a[0][0], "host-a.example")
+            self.assertEqual(results_a[0][2], "validated")
+
+            self.assertEqual(len(results_b), 1)
+            self.assertEqual(results_b[0][0], "host-b.example")
+            self.assertEqual(results_b[0][2], "not_validated")
+
+            self.assertEqual(len(results_all), 2)
+
+    def test_sanitize_db_project_scoped(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            db_path = tmp_path / "test.sqlite3"
+            scan_path = tmp_path / "sample.nessus"
+            initialize_database(db_path)
+            scan_path.write_text(
+                """
+                <NessusClientData_v2>
+                  <Report name="Example">
+                    <ReportHost name="host1.example">
+                      <ReportItem port="0" protocol="tcp" pluginID="19506" pluginName="Nessus Scan Information" severity="0" />
+                    </ReportHost>
+                  </Report>
+                </NessusClientData_v2>
+                """.strip()
+            )
+            import_nessus_scan(db_path, scan_path, store_findings=True, project_name="eng")
+            import_nessus_scan(db_path, scan_path, store_findings=True, project_name="corp")
+            override_result(db_path, 19506, "host1.example", 0, "validated", None, None, project_name="eng")
+            override_result(db_path, 19506, "host1.example", 0, "not_validated", None, None, project_name="corp")
+
+            result = sanitize_database(db_path, project_name="eng")
+            self.assertEqual(result["findings_deleted"], 1)
+            self.assertEqual(result["validation_runs_deleted"], 1)
+
+            # corp data must be intact
+            corp_results = get_latest_validation_results(db_path, 19506, project_name="corp")
+            self.assertEqual(len(corp_results), 1)
+            self.assertEqual(corp_results[0][2], "not_validated")
+
+    def test_list_projects(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            db_path = tmp_path / "test.sqlite3"
+            initialize_database(db_path)
+
+            override_result(db_path, 84502, "host-a.example", 443, "validated", None, None, project_name="alpha")
+            override_result(db_path, 84502, "host-b.example", 443, "not_validated", None, None, project_name="beta")
+
+            projects = list_projects(db_path)
+            project_names = [row[0] for row in projects]
+
+            self.assertIn("alpha", project_names)
+            self.assertIn("beta", project_names)
+            self.assertEqual(len(projects), 2)
+            for name, run_count, last_run in projects:
+                self.assertEqual(run_count, 1)
+                self.assertIsNotNone(last_run)
 
 
 if __name__ == "__main__":

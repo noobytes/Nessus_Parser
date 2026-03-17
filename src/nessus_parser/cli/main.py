@@ -37,6 +37,7 @@ from nessus_parser.services.scans import (
 )
 from nessus_parser.services.validation import (
     get_matching_scan_playbook_ids,
+    list_projects,
     validate_plugin,
     validate_scan_file,
     validate_scan_file_all,
@@ -68,6 +69,7 @@ def main() -> None:
     )
     parser.add_argument("--persist-results", action="store_true")
     parser.add_argument("--output", dest="output_path", type=Path)
+    parser.add_argument("-p", "--project", dest="project", default=None)
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -76,6 +78,7 @@ def main() -> None:
     import_scan = subparsers.add_parser("import-scan")
     import_scan.add_argument("scan_path", type=Path)
     import_scan.add_argument("--store-findings", action="store_true")
+    import_scan.add_argument("-p", "--project", dest="project", default=None)
 
     import_plugins = subparsers.add_parser("import-plugins")
     import_plugins.add_argument("plugin_file", type=Path)
@@ -116,9 +119,15 @@ def main() -> None:
 
     validate = subparsers.add_parser("validate")
     validate.add_argument("--plugin-id", type=int, required=True)
+    validate.add_argument("-p", "--project", dest="project", default=None)
 
-    subparsers.add_parser("validate-all")
-    subparsers.add_parser("sanitize-db")
+    validate_all = subparsers.add_parser("validate-all")
+    validate_all.add_argument("-p", "--project", dest="project", default=None)
+
+    sanitize_db = subparsers.add_parser("sanitize-db")
+    sanitize_db.add_argument("-p", "--project", dest="project", default=None)
+
+    subparsers.add_parser("list-projects")
 
     show_results = subparsers.add_parser("show-results")
     show_results.add_argument("--plugin-id", type=int, required=True)
@@ -126,12 +135,15 @@ def main() -> None:
     report = subparsers.add_parser("report")
     report.add_argument("--plugin-id", type=int, required=True)
     report.add_argument("--output", type=Path)
+    report.add_argument("-p", "--project", dest="project", default=None)
 
     report_all = subparsers.add_parser("report-all")
     report_all.add_argument("--output", type=Path, required=True)
+    report_all.add_argument("-p", "--project", dest="project", default=None)
 
     report_html = subparsers.add_parser("report-html")
     report_html.add_argument("--output", type=Path, required=True)
+    report_html.add_argument("-p", "--project", dest="project", default=None)
 
     override = subparsers.add_parser("override-result")
     override.add_argument("--plugin-id", type=int, required=True)
@@ -145,6 +157,7 @@ def main() -> None:
 
     if args.scan_file and (args.validate_from_file or args.validate_all_from_file):
         initialize_database(DB_PATH)
+        project_name = args.project or "default"
         min_severity = _SEVERITY_MAP.get(args.min_severity) if args.min_severity else None
         if args.validate_from_file:
             if args.plugin_id_flag is None:
@@ -154,6 +167,7 @@ def main() -> None:
                 args.scan_file,
                 args.plugin_id_flag,
                 persist_results=args.persist_results,
+                project_name=project_name,
             )
         else:
             selected_plugin_ids = list_playbook_plugin_ids(DB_PATH)
@@ -195,6 +209,7 @@ def main() -> None:
                             args.scan_file,
                             plugin_id,
                             persist_results=True,
+                            project_name=project_name,
                         )
                     )
                 output = "\n\n".join(reports)
@@ -217,9 +232,10 @@ def main() -> None:
     initialize_database(DB_PATH)
 
     if args.command == "import-scan":
-        count = import_nessus_scan(DB_PATH, args.scan_path, store_findings=args.store_findings)
+        project_name = getattr(args, "project", None) or "default"
+        count = import_nessus_scan(DB_PATH, args.scan_path, store_findings=args.store_findings, project_name=project_name)
         if args.store_findings:
-            print(f"Imported {count} plugin rows and stored findings from {args.scan_path}")
+            print(f"Imported {count} plugin rows and stored findings from {args.scan_path} (project={project_name})")
         else:
             print(
                 f"Imported {count} plugin rows from {args.scan_path} without storing host-level findings"
@@ -340,10 +356,12 @@ def main() -> None:
         return
 
     if args.command == "validate":
-        print(validate_plugin(DB_PATH, args.plugin_id))
+        project_name = getattr(args, "project", None) or "default"
+        print(validate_plugin(DB_PATH, args.plugin_id, project_name=project_name))
         return
 
     if args.command == "validate-all":
+        project_name = getattr(args, "project", None) or "default"
         min_severity = _SEVERITY_MAP.get(args.min_severity) if args.min_severity else None
         plugin_ids = list_playbook_plugin_ids(DB_PATH)
         finding_plugin_ids = set(
@@ -364,16 +382,27 @@ def main() -> None:
             label = f"{plugin_id} ({name})" if name else str(plugin_id)
             print(f"[{index}/{total}] validating {label}", file=sys.stderr, flush=True)
             print(f"== plugin_id {plugin_id} ==")
-            print(validate_plugin(DB_PATH, plugin_id))
+            print(validate_plugin(DB_PATH, plugin_id, project_name=project_name))
         return
 
     if args.command == "sanitize-db":
-        result = sanitize_database(DB_PATH)
+        project_name = getattr(args, "project", None)
+        result = sanitize_database(DB_PATH, project_name=project_name)
+        scope = f" (project={project_name})" if project_name else ""
         print(
-            "Sanitized database: "
+            f"Sanitized database{scope}: "
             f"deleted {result['findings_deleted']} findings rows and "
             f"{result['validation_runs_deleted']} validation rows"
         )
+        return
+
+    if args.command == "list-projects":
+        rows = list_projects(DB_PATH)
+        if not rows:
+            print("No projects found")
+            return
+        for project, run_count, last_run in rows:
+            print(f"{project}\truns={run_count}\tlast_run={last_run}")
         return
 
     if args.command == "show-results":
@@ -423,20 +452,23 @@ def main() -> None:
         return
 
     if args.command == "report":
+        project_name = getattr(args, "project", None)
         if args.output is not None:
-            output_path = export_plugin_report_csv(DB_PATH, args.plugin_id, args.output)
+            output_path = export_plugin_report_csv(DB_PATH, args.plugin_id, args.output, project_name=project_name)
             print(f"Wrote CSV report to {output_path}")
             return
-        print(build_plugin_report(DB_PATH, args.plugin_id))
+        print(build_plugin_report(DB_PATH, args.plugin_id, project_name=project_name))
         return
 
     if args.command == "report-all":
-        output_path = export_all_reports_csv(DB_PATH, args.output)
+        project_name = getattr(args, "project", None)
+        output_path = export_all_reports_csv(DB_PATH, args.output, project_name=project_name)
         print(f"Wrote combined CSV report to {output_path}")
         return
 
     if args.command == "report-html":
-        output_path = export_all_reports_html(DB_PATH, args.output)
+        project_name = getattr(args, "project", None)
+        output_path = export_all_reports_html(DB_PATH, args.output, project_name=project_name)
         print(f"Wrote HTML report to {output_path}")
         return
 

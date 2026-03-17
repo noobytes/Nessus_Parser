@@ -79,7 +79,7 @@ def _relevant_lines(stdout: str, highlight_terms: list[str]) -> list[str]:
     ]
 
 
-def build_plugin_report(db_path: Path, plugin_id: int) -> str:
+def build_plugin_report(db_path: Path, plugin_id: int, project_name: str | None = None) -> str:
     plugin = get_plugin_details(db_path, plugin_id)
     if plugin is None:
         return f"Plugin {plugin_id} not found in local database"
@@ -89,7 +89,7 @@ def build_plugin_report(db_path: Path, plugin_id: int) -> str:
         f"name: {plugin[1]}",
     ]
 
-    summary = get_validation_summary(db_path, plugin_id)
+    summary = get_validation_summary(db_path, plugin_id, project_name=project_name)
     if not summary:
         lines.append("results: none")
         return "\n".join(lines)
@@ -98,7 +98,7 @@ def build_plugin_report(db_path: Path, plugin_id: int) -> str:
     for status, count in summary:
         lines.append(f"status\t{status}\tcount={count}")
 
-    latest_results = get_latest_validation_results(db_path, plugin_id)
+    latest_results = get_latest_validation_results(db_path, plugin_id, project_name=project_name)
     lines.append(f"latest_results: {len(latest_results)}")
     for host, port, status, reason, analyst_note, command, executed_at, source in latest_results[:50]:
         lines.append(
@@ -109,8 +109,8 @@ def build_plugin_report(db_path: Path, plugin_id: int) -> str:
     return "\n".join(lines)
 
 
-def export_plugin_report_csv(db_path: Path, plugin_id: int, output_path: Path) -> Path:
-    latest_results = get_latest_validation_results(db_path, plugin_id)
+def export_plugin_report_csv(db_path: Path, plugin_id: int, output_path: Path, project_name: str | None = None) -> Path:
+    latest_results = get_latest_validation_results(db_path, plugin_id, project_name=project_name)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="") as handle:
         writer = csv.writer(handle)
@@ -121,7 +121,7 @@ def export_plugin_report_csv(db_path: Path, plugin_id: int, output_path: Path) -
     return output_path
 
 
-def export_all_reports_csv(db_path: Path, output_path: Path) -> Path:
+def export_all_reports_csv(db_path: Path, output_path: Path, project_name: str | None = None) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plugin_ids = list_playbook_plugin_ids(db_path)
     with output_path.open("w", newline="") as handle:
@@ -143,7 +143,7 @@ def export_all_reports_csv(db_path: Path, output_path: Path) -> Path:
         for plugin_id in plugin_ids:
             plugin = get_plugin_details(db_path, plugin_id)
             plugin_name = plugin[1] if plugin is not None else ""
-            for host, port, status, reason, analyst_note, command, executed_at, source in get_latest_validation_results(db_path, plugin_id):
+            for host, port, status, reason, analyst_note, command, executed_at, source in get_latest_validation_results(db_path, plugin_id, project_name=project_name):
                 writer.writerow(
                     [
                         plugin_id,
@@ -161,7 +161,7 @@ def export_all_reports_csv(db_path: Path, output_path: Path) -> Path:
     return output_path
 
 
-def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
+def export_all_reports_html(db_path: Path, output_path: Path, project_name: str | None = None) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plugin_ids = list_playbook_plugin_ids(db_path)
     dataset: list[dict[str, object]] = []
@@ -174,8 +174,8 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
         if plugin is not None:
             plugin_summary = plugin[4] or plugin[5] or plugin[6] or "-"
             plugin_severity = plugin[3] or "-"
-        summary = get_validation_summary(db_path, plugin_id)
-        latest_results = get_latest_validation_results(db_path, plugin_id)
+        summary = get_validation_summary(db_path, plugin_id, project_name=project_name)
+        latest_results = get_latest_validation_results(db_path, plugin_id, project_name=project_name)
 
         # Pick the first validated result as the evidence sample
         validated_sample = None
@@ -224,14 +224,15 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
             }
         )
 
+    report_title = f"Nessus Parser Report \u2014 {html.escape(project_name)}" if project_name else "Nessus Parser Report"
     output_path.write_text(
-        """
+        ("""
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nessus Parser Report</title>
+  <title>REPORT_TITLE_PLACEHOLDER</title>
   <style>
     :root { color-scheme: light; }
     body { font-family: Georgia, serif; margin: 2rem; background: #f4efe6; color: #1f1a17; }
@@ -268,7 +269,7 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
   </style>
 </head>
 <body>
-  <h1>Nessus Parser Report</h1>
+  <h1>REPORT_TITLE_PLACEHOLDER</h1>
   <p>Latest result per plugin / host / port.</p>
   <div class="toolbar">
     <div><label for="pluginFilter">Plugin</label><input id="pluginFilter" placeholder="84502 or HSTS"></div>
@@ -558,6 +559,6 @@ ${fullOutputHtml}</div>`;
         + """
 </body>
 </html>
-"""
+""").replace("REPORT_TITLE_PLACEHOLDER", report_title)
     )
     return output_path

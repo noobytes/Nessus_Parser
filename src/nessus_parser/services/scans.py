@@ -7,7 +7,7 @@ from pathlib import Path
 from nessus_parser.db.connection import connect
 
 
-def import_nessus_scan(db_path: Path, scan_path: Path, store_findings: bool = False) -> int:
+def import_nessus_scan(db_path: Path, scan_path: Path, store_findings: bool = False, project_name: str = "default") -> int:
     tree = etree.parse(scan_path)
     root = tree.getroot()
     processed = 0
@@ -28,8 +28,9 @@ def import_nessus_scan(db_path: Path, scan_path: Path, store_findings: bool = Fa
                             plugin_id,
                             plugin_name,
                             severity,
-                            plugin_output
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            plugin_output,
+                            project_name
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             scan_path.name,
@@ -40,6 +41,7 @@ def import_nessus_scan(db_path: Path, scan_path: Path, store_findings: bool = Fa
                             report_item.attrib.get("pluginName", ""),
                             report_item.attrib.get("severity"),
                             _child_text(report_item, "plugin_output"),
+                            project_name,
                         ),
                     )
                 processed += 1
@@ -138,7 +140,7 @@ def get_finding_targets(
         connection.close()
 
 
-def get_finding_ids_for_plugin(db_path: Path, plugin_id: int) -> list[tuple[int, str, int | None, str | None]]:
+def get_finding_ids_for_plugin(db_path: Path, plugin_id: int, project_name: str | None = None) -> list[tuple[int, str, int | None, str | None]]:
     connection = connect(db_path)
     try:
         return list(
@@ -147,10 +149,11 @@ def get_finding_ids_for_plugin(db_path: Path, plugin_id: int) -> list[tuple[int,
                 SELECT MIN(id) AS id, host, port, protocol
                 FROM findings
                 WHERE plugin_id = ?
+                AND (? IS NULL OR project_name = ?)
                 GROUP BY host, port, protocol
                 ORDER BY host ASC, port ASC, id ASC
                 """,
-                (plugin_id,),
+                (plugin_id, project_name, project_name),
             )
         )
     finally:

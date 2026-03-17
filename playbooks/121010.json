@@ -1,0 +1,71 @@
+{
+  "plugin_id": 121010,
+  "finding_name": "TLS Version 1.1 Protocol Detection",
+  "service": "tls",
+  "port_logic": "use_scan_port",
+  "command_template": "testssl.sh --color 0 --protocols https://{host}:{port}",
+  "timeout_seconds": 60,
+  "allowed_ports": [],
+  "blocked_ports": [],
+  "starttls_protocol_map": {
+    "21": "ftp",
+    "25": "smtp",
+    "110": "pop3",
+    "143": "imap",
+    "389": "ldap",
+    "5222": "xmpp",
+    "5269": "xmpp-server",
+    "5432": "postgres",
+    "587": "smtp"
+  },
+  "fallback_commands": [
+    "sslscan --no-colour --tls11 {sslscan_starttls_args} {host}:{port}",
+    "nmap -Pn --script ssl-enum-ciphers -p {port} {host}",
+    "openssl s_client -connect {host}:{port} {openssl_tls_args} -tls1_1 </dev/null 2>&1"
+  ],
+  "version_rule": {},
+  "validated_if": [
+    "TLSv1.1      offered",
+    "TLSv1.1 offered",
+    "tlsv1.1"
+  ],
+  "validated_if_absent": [],
+  "not_validated_if": [
+    "TLSv1.1      not offered",
+    "TLSv1.1 not offered",
+    "ssl/tls not supported",
+    "unsupported protocol",
+    "tlsv1 alert protocol version",
+    "handshake failure"
+  ],
+  "not_validated_if_present": [],
+  "inconclusive_if": [
+    "failed to resolve",
+    "connection timed out",
+    "connection refused",
+    "operation not permitted",
+    "cannot create af_netlink socket",
+    "0 hosts up",
+    "host seems down",
+    "no route to host",
+    "network is unreachable"
+  ],
+  "failure_reason_map": {
+    "failed to resolve": "dns_failure",
+    "connection timed out": "port_filtered",
+    "connection refused": "port_closed",
+    "operation not permitted": "inconclusive",
+    "cannot create af_netlink socket": "inconclusive",
+    "0 hosts up": "host_down",
+    "host seems down": "host_down",
+    "no route to host": "host_unreachable",
+    "network is unreachable": "host_unreachable"
+  },
+  "references": [
+    "https://testssl.sh",
+    "https://github.com/rbsec/sslscan",
+    "https://nmap.org/nsedoc/scripts/ssl-enum-ciphers.html"
+  ],
+  "reviewed_by": "analyst",
+  "last_verified": "2026-03-17"
+}

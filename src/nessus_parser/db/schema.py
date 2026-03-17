@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS findings (
     plugin_name TEXT NOT NULL,
     severity TEXT,
     plugin_output TEXT,
+    project_name TEXT NOT NULL DEFAULT 'default',
     imported_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -71,6 +72,7 @@ CREATE TABLE IF NOT EXISTS validation_runs (
     stdout TEXT,
     stderr TEXT,
     exit_code INTEGER,
+    project_name TEXT NOT NULL DEFAULT 'default',
     executed_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 """
@@ -91,6 +93,8 @@ def initialize_database(db_path: Path) -> None:
         _ensure_column(connection, "playbooks", "not_validated_if_present_json", "TEXT NOT NULL DEFAULT '[]'")
         _ensure_column(connection, "validation_runs", "analyst_note", "TEXT")
         _ensure_column(connection, "validation_runs", "source", "TEXT NOT NULL DEFAULT 'automation'")
+        _ensure_column(connection, "validation_runs", "project_name", "TEXT NOT NULL DEFAULT 'default'")
+        _ensure_column(connection, "findings", "project_name", "TEXT NOT NULL DEFAULT 'default'")
         connection.commit()
     finally:
         connection.close()
