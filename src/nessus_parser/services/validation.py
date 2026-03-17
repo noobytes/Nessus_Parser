@@ -301,7 +301,7 @@ def get_validation_summary(db_path: Path, plugin_id: int) -> list[tuple[str, int
 def get_latest_validation_results(
     db_path: Path,
     plugin_id: int,
-) -> list[tuple[str, int | None, str, str | None, str | None, str, str, str]]:
+) -> list[tuple[str, int | None, str, str | None, str | None, str, str, str, str | None, str | None]]:
     connection = connect(db_path)
     try:
         return list(
@@ -315,7 +315,9 @@ def get_latest_validation_results(
                     vr.analyst_note,
                     vr.command,
                     vr.executed_at,
-                    vr.source
+                    vr.source,
+                    vr.stdout,
+                    vr.stderr
                 FROM validation_runs vr
                 INNER JOIN (
                     SELECT host, port, MAX(id) AS latest_id

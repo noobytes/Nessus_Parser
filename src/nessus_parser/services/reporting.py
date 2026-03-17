@@ -49,7 +49,8 @@ def export_plugin_report_csv(db_path: Path, plugin_id: int, output_path: Path) -
     with output_path.open("w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["host", "port", "status", "reason", "analyst_note", "source", "executed_at", "command"])
-        for host, port, status, reason, analyst_note, command, executed_at, source in latest_results:
+        for row in latest_results:
+            host, port, status, reason, analyst_note, command, executed_at, source = row[:8]
             writer.writerow([host, port, status, reason or "", analyst_note or "", source, executed_at, command])
     return output_path
 
@@ -109,6 +110,20 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
             plugin_severity = plugin[3] or "-"
         summary = get_validation_summary(db_path, plugin_id)
         latest_results = get_latest_validation_results(db_path, plugin_id)
+
+        # Pick the first validated result as the evidence sample
+        validated_sample = None
+        for row in latest_results:
+            if row[2] == "validated":
+                validated_sample = {
+                    "host": row[0],
+                    "port": row[1],
+                    "command": row[5],
+                    "stdout": (row[8] or "").strip(),
+                    "stderr": (row[9] or "").strip(),
+                }
+                break
+
         dataset.append(
             {
                 "plugin_id": plugin_id,
@@ -116,18 +131,19 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
                 "plugin_summary": plugin_summary,
                 "plugin_severity": plugin_severity,
                 "summary": [{"status": status, "count": count} for status, count in summary],
+                "validated_sample": validated_sample,
                 "results": [
                     {
-                        "host": host,
-                        "port": port,
-                        "status": status,
-                        "reason": reason or "-",
-                        "analyst_note": analyst_note or "-",
-                        "command": command,
-                        "executed_at": executed_at,
-                        "source": source,
+                        "host": row[0],
+                        "port": row[1],
+                        "status": row[2],
+                        "reason": row[3] or "-",
+                        "analyst_note": row[4] or "-",
+                        "command": row[5],
+                        "executed_at": row[6],
+                        "source": row[7],
                     }
-                    for host, port, status, reason, analyst_note, command, executed_at, source in latest_results
+                    for row in latest_results
                 ],
             }
         )
@@ -165,6 +181,13 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
     .actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
     .button { padding: 0.5rem 0.8rem; border: 1px solid #b9a88f; background: #e8dcc9; color: #2a211c; font: 0.85rem/1.2 'Trebuchet MS', sans-serif; cursor: pointer; }
     .group-title { font: 1.15rem/1.2 'Trebuchet MS', sans-serif; margin: 1.75rem 0 0.75rem; color: #5a4637; text-transform: uppercase; letter-spacing: 0.04em; }
+    .evidence-toggle { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.85rem; cursor: pointer; font: 0.85rem/1.2 'Trebuchet MS', sans-serif; color: #3a5a8a; border: 1px solid #3a5a8a; padding: 0.25rem 0.6rem; background: #eef3fa; user-select: none; }
+    .evidence-toggle .toggle-icon { font-size: 1rem; font-weight: 700; line-height: 1; transition: transform 0.15s; display: inline-block; }
+    .evidence-toggle.open .toggle-icon { transform: rotate(45deg); }
+    .evidence-box { display: none; margin-top: 0.5rem; border: 1px solid #ccc; background: #ffffff; color: #000000; font-family: 'Courier New', Courier, monospace; font-size: 0.82rem; padding: 0.85rem 1rem; white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
+    .evidence-box.visible { display: block; }
+    .evidence-label { font: 0.78rem/1.2 'Trebuchet MS', sans-serif; color: #6b5748; margin-top: 0.85rem; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .ev-highlight { color: #cc0000; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -258,6 +281,22 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
           return acc;
         }, {})).sort((a, b) => a[0].localeCompare(b[0]));
 
+        const uid = `ev-${plugin.plugin_id}`;
+        const sample = plugin.validated_sample;
+        let evidenceHtml = '';
+        if (sample) {
+          const rawOutput = (sample.stdout || sample.stderr || '(no output captured)');
+          const highlighted = highlightEvidence(escapeHtml(rawOutput));
+          evidenceHtml = `
+            <div class="evidence-label">Validated evidence sample &mdash; ${escapeHtml(String(sample.host))}:${escapeHtml(String(sample.port))}</div>
+            <div class="evidence-toggle" id="toggle-${uid}" onclick="toggleEvidence('${uid}')">
+              <span class="toggle-icon">+</span> Show command output
+            </div>
+            <div class="evidence-box" id="box-${uid}"><strong>Command:</strong> ${escapeHtml(sample.command || '')}
+
+${highlighted}</div>`;
+        }
+
         const sectionHtml = `
           <section class="plugin">
             <h2>${plugin.plugin_id} - ${escapeHtml(plugin.plugin_name)}</h2>
@@ -266,7 +305,8 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
               <li class="chip sev-${escapeHtml(String(plugin.plugin_severity))}">severity ${escapeHtml(String(plugin.plugin_severity))}</li>
               ${summary.map(([status, count]) => `<li class="chip">${escapeHtml(status)}: ${count}</li>`).join('')}
             </ul>
-            <details>
+            ${evidenceHtml}
+            <details style="margin-top:0.85rem">
               <summary>Show ${rows.length} result rows</summary>
               <table>
                 <thead>
@@ -357,6 +397,38 @@ def export_all_reports_html(db_path: Path, output_path: Path) -> Path:
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+    }
+
+    function toggleEvidence(uid) {
+      const toggle = document.getElementById('toggle-' + uid);
+      const box    = document.getElementById('box-' + uid);
+      if (!toggle || !box) return;
+      const opening = !box.classList.contains('visible');
+      box.classList.toggle('visible', opening);
+      toggle.classList.toggle('open', opening);
+      toggle.querySelector('.toggle-icon').textContent = opening ? '+' : '+';
+    }
+
+    // Highlight version numbers, TLS/SSL labels, CVE IDs, protocol strings in red.
+    function highlightEvidence(text) {
+      // Patterns to highlight (applied in order, non-overlapping via placeholder trick)
+      const patterns = [
+        // CVE identifiers
+        { re: /(CVE-[0-9]{4}-[0-9]+)/gi },
+        // Version numbers: v1.2.3, 1.2.3, 1.2.3.4
+        { re: /(\\bv?[0-9]+\\.[0-9]+(?:\\.[0-9]+){0,2}\\b)/g },
+        // TLS / SSL protocol versions
+        { re: /(\\bTLS\\s*v?[0-9][0-9.]*|\\bSSL\\s*v?[0-9][0-9.]*|\\bTLSv[0-9][0-9.]*|\\bSSLv[0-9][0-9.]*)/gi },
+        // OpenSSL / LibreSSL label
+        { re: /(\\bOpenSSL\\b|\\bLibreSSL\\b)/gi },
+        // Weak cipher suites
+        { re: /(\\b(?:RC4|DES|3DES|NULL|EXPORT|MD5|SHA1|ANON|ADH|AECDH)\\b)/gi },
+      ];
+      let result = text;
+      for (const { re } of patterns) {
+        result = result.replace(re, '<span class="ev-highlight">$1</span>');
+      }
+      return result;
     }
 
     function csvEscape(value) {
