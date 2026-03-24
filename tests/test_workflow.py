@@ -381,7 +381,7 @@ class WorkflowTests(unittest.TestCase):
 
             output = validate_scan_file(db_path, scan_path, 84502)
 
-            self.assertIn("persisted_results: no", output)
+            self.assertIn("persisted: no", output)
             self.assertEqual(get_latest_validation_results(db_path, 84502), [])
 
     def test_sanitize_database_removes_client_rows(self) -> None:

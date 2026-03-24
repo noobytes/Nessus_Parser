@@ -5,6 +5,22 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from nessus_parser.core.colors import (
+    bold,
+    bright_cyan,
+    bright_red,
+    bright_yellow,
+    cyan,
+    dim,
+    green,
+    heavy_separator,
+    red,
+    separator,
+    severity_badge,
+    status_badge,
+    status_text,
+    yellow,
+)
 from nessus_parser.db.connection import connect
 from nessus_parser.services.playbooks import get_playbook
 from nessus_parser.services.scans import (
@@ -110,22 +126,22 @@ def validate_plugin(db_path: Path, plugin_id: int, project_name: str = "default"
         connection.close()
 
     summary = Counter(status for status, _, _, _ in results)
-    lines = [f"Validated {len(results)} finding rows for plugin {plugin_id}"]
+    lines = [bold(f"Validated {len(results)} targets for plugin {plugin_id}")]
     if skipped:
-        lines.append(f"skipped: {len(skipped)}")
+        lines.append(dim(f"  skipped: {len(skipped)}"))
     for status, count in sorted(summary.items()):
-        lines.append(f"{status}: {count}")
+        lines.append(f"  {status_text(status)}: {count}")
     for status, reason, host, port in results[:20]:
         detail = f"{host}:{port}" if port is not None else host
-        suffix = f" reason={reason}" if reason else ""
-        lines.append(f"result\t{detail}\t{status}{suffix}")
+        suffix = f" {dim('reason=' + reason)}" if reason else ""
+        lines.append(f"  {bold(detail)}  {status_badge(status)}{suffix}")
     if len(results) > 20:
-        lines.append(f"... truncated {len(results) - 20} additional results")
+        lines.append(dim(f"  ... truncated {len(results) - 20} additional results"))
     for host, port, reason in skipped[:20]:
         detail = f"{host}:{port}" if port is not None else host
-        lines.append(f"skipped\t{detail}\treason={reason}")
+        lines.append(f"  {dim('skipped')}  {detail}  {dim('reason=' + reason)}")
     if len(skipped) > 20:
-        lines.append(f"... truncated {len(skipped) - 20} additional skipped targets")
+        lines.append(dim(f"  ... truncated {len(skipped) - 20} additional skipped targets"))
     return "\n".join(lines)
 
 
@@ -465,60 +481,37 @@ def _format_scan_validation_output(
 ) -> str:
     plugin_name = str(scan_data["plugin_name"])
     description = _short_finding_description(scan_data)
-    result_by_target = {
-        f"{item['host']}:{item['port']}": item
-        for item in results
-    }
+    sev = scan_data.get("severity")
+    sev_tag = severity_badge(str(sev)) if sev is not None else ""
+
     lines = [
-        f"scan_file: {scan_path}",
-        f"plugin_id: {scan_data['plugin_id']}",
-        f"name: {plugin_name}",
-        f"finding_summary: {description}",
-        f"persisted_results: {'yes' if persisted_results else 'no'}",
+        separator(),
+        sev_tag + " " + bold(cyan("Plugin " + str(scan_data["plugin_id"]))) + " " + dim("|") + " " + bold(plugin_name),
+        dim("scan: " + str(scan_path)),
+        dim("persisted: " + ("yes" if persisted_results else "no")),
         "",
-        "Report Ready:",
+        bright_cyan("SUMMARY"),
+        dim(description),
     ]
     lines.extend(_build_report_ready_block(scan_data, groups, results))
-    lines.extend([
-        "",
-        "True Positive:",
-    ])
 
-    true_positive = groups.get("validated", [])
-    if true_positive:
-        for target in true_positive:
-            lines.append(target)
-            command = str(result_by_target.get(target, {}).get("command", "")).strip()
-            if command:
-                lines.append(f"Reproduce command: {command}")
-    else:
-        lines.append("None")
-
-    lines.extend(["", "False Positive:"])
-    false_positive = groups.get("not_validated", [])
-    if false_positive:
-        for target in false_positive:
-            lines.append(target)
-            command = str(result_by_target.get(target, {}).get("command", "")).strip()
-            if command:
-                lines.append(f"Reproduce command: {command}")
-    else:
-        lines.append("None")
-
-    for heading, status in (
-        ("Inconclusive", "inconclusive"),
-        ("Host Down", "host_down"),
-        ("Port Closed", "port_closed"),
-        ("Port Filtered", "port_filtered"),
-        ("Skipped", "skipped"),
-        ("Error", "error"),
+    # Status group sections (only non-empty)
+    for heading, status, color_fn in (
+        ("INCONCLUSIVE", "inconclusive", yellow),
+        ("HOST DOWN", "host_down", dim),
+        ("PORT CLOSED", "port_closed", dim),
+        ("PORT FILTERED", "port_filtered", dim),
+        ("SKIPPED", "skipped", dim),
+        ("ERROR", "error", red),
     ):
         members = groups.get(status, [])
         if members:
-            lines.extend(["", f"{heading}:"])
-            lines.extend(members)
+            lines.extend(["", bright_yellow(f"{heading} ({len(members)}):") if status in ("inconclusive", "error") else dim(f"{heading} ({len(members)}):")])
+            for target in members:
+                lines.append(f"  {color_fn(target)}")
 
-    lines.append("command_output:")
+    # Detailed command output
+    lines.extend(["", bright_cyan("COMMAND OUTPUT")])
     ordered_results = sorted(
         results,
         key=lambda item: (
@@ -528,19 +521,67 @@ def _format_scan_validation_output(
         ),
     )
     for result in ordered_results[:20]:
+        status_str = str(result["status"])
+        target_label = f"{result['host']}:{result['port']}"
+        reason_str = result["reason"] or "-"
         lines.append(
-            f"target={result['host']}:{result['port']} status={result['status']} reason={result['reason'] or '-'}"
+            f"  {bold(target_label)}  {status_badge(status_str)}  {dim('reason='+ reason_str)}"
         )
         if result["command"]:
-            lines.append(f"Reproduce command: {result['command']}")
+            lines.append(f"    {dim('$')} {dim(str(result['command']))}")
         stdout = str(result["stdout"]).strip()
         stderr = str(result["stderr"]).strip()
         if stdout:
-            lines.append(f"stdout={stdout[:400]}")
+            lines.append(f"    {dim('stdout=')}{ stdout[:400]}")
         if stderr:
-            lines.append(f"stderr={stderr[:400]}")
+            lines.append(f"    {dim('stderr=')}{red(stderr[:400])}")
     if len(ordered_results) > 20:
-        lines.append(f"... truncated {len(ordered_results) - 20} additional command outputs")
+        lines.append(dim(f"  ... truncated {len(ordered_results) - 20} additional outputs"))
+    return "\n".join(lines)
+
+
+def build_summary_banner(
+    total_plugins: int,
+    status_totals: dict[str, int],
+    total_targets: int,
+) -> str:
+    lines = [
+        "",
+        heavy_separator(),
+        bold(bright_cyan("  VALIDATION SUMMARY")),
+        heavy_separator(),
+        f"  {bold('Plugins processed:')}  {total_plugins}",
+        f"  {bold('Total targets:')}      {total_targets}",
+        "",
+    ]
+
+    for label, key, color_fn in (
+        ("True Positives", "validated", bright_red),
+        ("False Positives", "not_validated", green),
+        ("Inconclusive", "inconclusive", yellow),
+        ("Host Down", "host_down", dim),
+        ("Port Closed", "port_closed", dim),
+        ("Port Filtered", "port_filtered", dim),
+        ("Skipped", "skipped", dim),
+        ("Errors", "error", red),
+    ):
+        count = status_totals.get(key, 0)
+        if count > 0:
+            bar_len = min(count, 40)
+            bar = "\u2588" * bar_len
+            lines.append(f"  {color_fn(f'{label:<18} {count:>5}  {bar}')}")
+
+    validated = status_totals.get("validated", 0)
+    not_validated = status_totals.get("not_validated", 0)
+    if total_targets > 0:
+        tp_rate = validated / total_targets * 100
+        fp_rate = not_validated / total_targets * 100
+        lines.extend([
+            "",
+            f"  {bold('Confirmation rate:')} {bright_red(f'{tp_rate:.1f}%')} true positive, {green(f'{fp_rate:.1f}%')} false positive",
+        ])
+
+    lines.append(heavy_separator())
     return "\n".join(lines)
 
 
@@ -563,23 +604,44 @@ def _build_report_ready_block(
     true_positive = groups.get("validated", [])
     false_positive = groups.get("not_validated", [])
     plugin_name = str(scan_data["plugin_name"])
-    summary = _short_finding_description(scan_data)
-    lines = [summary]
+    lines: list[str] = []
+
+    # Status counts bar
+    status_counts: list[str] = []
+    for label, key, color_fn in (
+        ("TRUE POS", "validated", bright_red),
+        ("FALSE POS", "not_validated", green),
+        ("INCONCLUSIVE", "inconclusive", yellow),
+        ("DOWN/CLOSED", "host_down", dim),
+        ("SKIPPED", "skipped", dim),
+        ("ERROR", "error", red),
+    ):
+        count = len(groups.get(key, []))
+        if key == "DOWN/CLOSED":
+            count = len(groups.get("host_down", [])) + len(groups.get("port_closed", [])) + len(groups.get("port_filtered", []))
+        if count > 0:
+            status_counts.append(color_fn(f"{label}: {count}"))
+    if status_counts:
+        lines.append("  " + dim(" | ").join(status_counts))
 
     if true_positive:
         target_label = ", ".join(true_positive)
-        lines.append(
-            f"Validated affected targets: {target_label}."
-        )
+        lines.extend([
+            "",
+            bright_red(f"  CONFIRMED VULNERABLE ({len(true_positive)}):"),
+        ])
+        for target in true_positive:
+            lines.append(f"    {bright_red('*')} {bold(target)}")
     elif false_positive:
         target_label = ", ".join(false_positive)
-        lines.append(
-            f"Validated false-positive targets: {target_label}."
-        )
+        lines.extend([
+            "",
+            green(f"  FALSE POSITIVE ({len(false_positive)}):"),
+        ])
+        for target in false_positive:
+            lines.append(f"    {green('*')} {target}")
     else:
-        lines.append(
-            f"No target was conclusively validated for '{plugin_name}' in this execution."
-        )
+        lines.append(dim(f"  No target conclusively validated for '{plugin_name}'."))
 
     commands: list[str] = []
     for result in results:
@@ -589,9 +651,9 @@ def _build_report_ready_block(
             commands.append(command)
 
     if commands:
-        lines.append("Validation was performed with the following command(s):")
+        lines.append(dim("  Validation command(s):"))
         for command in commands:
-            lines.append(f"- {command}")
+            lines.append(f"    {dim('$')} {dim(command)}")
 
     return lines
 

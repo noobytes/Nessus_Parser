@@ -5,59 +5,170 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>REPORT_TITLE_PLACEHOLDER</title>
   <style>
-    :root { color-scheme: light; }
-    body { font-family: Georgia, serif; margin: 2rem; background: #f4efe6; color: #1f1a17; }
-    h1, h2 { font-family: 'Trebuchet MS', sans-serif; }
-    .toolbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin: 1rem 0 1.5rem; }
-    .toolbar label { display: block; font: 0.8rem/1.2 'Trebuchet MS', sans-serif; text-transform: uppercase; letter-spacing: .04em; color: #6b5748; margin-bottom: 0.2rem; }
-    .toolbar input, .toolbar select { width: 100%; padding: 0.5rem; border: 1px solid #cdbfa9; background: #fffdf8; }
-    .plugin { background: #fffaf2; border: 1px solid #d8ccb8; padding: 1rem; margin: 0 0 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
-    .plugin details { margin-top: 0.75rem; }
-    .plugin summary { cursor: pointer; font-family: 'Trebuchet MS', sans-serif; font-weight: 600; color: #5a4637; }
-    .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.75rem 0; padding: 0; list-style: none; }
-    .chip { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; background: #efe3d0; border: 1px solid #d8ccb8; font: 0.8rem/1.2 'Trebuchet MS', sans-serif; }
-    .chip.sev-1 { background: #f3e7b8; }
-    .chip.sev-2 { background: #f7cf9c; }
-    .chip.sev-3 { background: #efb1a8; }
-    .chip.sev-4 { background: #c0392b; color: #fff; border-color: #a93226; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
-    th, td { border: 1px solid #d8ccb8; padding: 0.45rem; vertical-align: top; text-align: left; }
-    th { background: #efe3d0; }
-    code { font-size: 0.85rem; white-space: pre-wrap; word-break: break-word; }
-    ul { margin-top: 0.5rem; }
-    .stats { margin: 1rem 0; font-family: 'Trebuchet MS', sans-serif; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
-    .button { padding: 0.5rem 0.8rem; border: 1px solid #b9a88f; background: #e8dcc9; color: #2a211c; font: 0.85rem/1.2 'Trebuchet MS', sans-serif; cursor: pointer; }
-    .group-title { font: 1.15rem/1.2 'Trebuchet MS', sans-serif; margin: 1.75rem 0 0.75rem; color: #5a4637; text-transform: uppercase; letter-spacing: 0.04em; }
-    .evidence-toggle { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.85rem; cursor: pointer; font: 0.85rem/1.2 'Trebuchet MS', sans-serif; color: #3a5a8a; border: 1px solid #3a5a8a; padding: 0.25rem 0.6rem; background: #eef3fa; user-select: none; }
-    .evidence-toggle .toggle-icon { font-size: 1rem; font-weight: 700; line-height: 1; }
-    .evidence-box { display: none; margin-top: 0.5rem; border: 1px solid #ccc; background: #ffffff; color: #000000; font-family: 'Courier New', Courier, monospace; font-size: 0.82rem; padding: 0.85rem 1rem; white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
+    :root {
+      --bg: #0d1117; --bg-card: #161b22; --bg-input: #0d1117;
+      --border: #30363d; --text: #c9d1d9; --text-dim: #8b949e;
+      --accent: #58a6ff; --accent-dim: #1f6feb;
+      --sev-crit: #f85149; --sev-crit-bg: rgba(248,81,73,.15);
+      --sev-high: #f0883e; --sev-high-bg: rgba(240,136,62,.15);
+      --sev-med: #d29922; --sev-med-bg: rgba(210,153,34,.15);
+      --sev-low: #3fb950; --sev-low-bg: rgba(63,185,80,.15);
+      --sev-info: #58a6ff; --sev-info-bg: rgba(88,166,255,.15);
+      --st-validated: #f85149; --st-validated-bg: rgba(248,81,73,.15);
+      --st-not-validated: #3fb950; --st-not-validated-bg: rgba(63,185,80,.15);
+      --st-inconclusive: #d29922; --st-inconclusive-bg: rgba(210,153,34,.15);
+      --st-other: #8b949e; --st-other-bg: rgba(139,148,158,.1);
+    }
+    html[data-theme="light"] {
+      --bg: #f6f8fa; --bg-card: #ffffff; --bg-input: #ffffff;
+      --border: #d0d7de; --text: #1f2328; --text-dim: #656d76;
+      --accent: #0969da; --accent-dim: #0550ae;
+      --sev-crit: #cf222e; --sev-crit-bg: rgba(207,34,46,.08);
+      --sev-high: #bc4c00; --sev-high-bg: rgba(188,76,0,.08);
+      --sev-med: #9a6700; --sev-med-bg: rgba(154,103,0,.08);
+      --sev-low: #1a7f37; --sev-low-bg: rgba(26,127,55,.08);
+      --sev-info: #0969da; --sev-info-bg: rgba(9,105,218,.08);
+      --st-validated: #cf222e; --st-validated-bg: rgba(207,34,46,.08);
+      --st-not-validated: #1a7f37; --st-not-validated-bg: rgba(26,127,55,.08);
+      --st-inconclusive: #9a6700; --st-inconclusive-bg: rgba(154,103,0,.08);
+      --st-other: #656d76; --st-other-bg: rgba(101,109,118,.08);
+    }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; padding: 1.5rem 2rem; background: var(--bg); color: var(--text); line-height: 1.5; }
+
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+    .header h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
+    .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+    /* Theme toggle */
+    .theme-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.75rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+    .theme-btn:hover { border-color: var(--accent); }
+
+    /* Dashboard cards */
+    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+    .dash-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; text-align: center; }
+    .dash-card .dash-value { font-size: 1.8rem; font-weight: 700; line-height: 1.2; }
+    .dash-card .dash-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-top: 0.2rem; }
+    .dash-card.dc-crit .dash-value { color: var(--sev-crit); }
+    .dash-card.dc-high .dash-value { color: var(--sev-high); }
+    .dash-card.dc-med .dash-value { color: var(--sev-med); }
+    .dash-card.dc-low .dash-value { color: var(--sev-low); }
+    .dash-card.dc-tp .dash-value { color: var(--st-validated); }
+    .dash-card.dc-fp .dash-value { color: var(--st-not-validated); }
+    .dash-card.dc-inc .dash-value { color: var(--st-inconclusive); }
+    .dash-card.dc-total .dash-value { color: var(--accent); }
+
+    /* Toolbar */
+    .toolbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.6rem; margin-bottom: 1.25rem; }
+    .toolbar label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 0.2rem; font-weight: 600; }
+    .toolbar input, .toolbar select { width: 100%; padding: 0.45rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); color: var(--text); font-size: 0.85rem; }
+    .toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,166,255,.15); }
+
+    .stats-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
+    .stats-bar .stats-text { font-size: 0.85rem; color: var(--text-dim); }
+
+    /* Buttons */
+    .btn { padding: 0.45rem 0.85rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text); font-size: 0.82rem; cursor: pointer; font-weight: 500; }
+    .btn:hover { border-color: var(--accent); background: var(--accent-dim); color: #fff; }
+    .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
+
+    /* Severity group titles */
+    .group-title { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.5rem 0; margin: 1.5rem 0 0.5rem; border-bottom: 2px solid var(--border); }
+    .group-title.gt-4 { color: var(--sev-crit); border-color: var(--sev-crit); }
+    .group-title.gt-3 { color: var(--sev-high); border-color: var(--sev-high); }
+    .group-title.gt-2 { color: var(--sev-med); border-color: var(--sev-med); }
+    .group-title.gt-1 { color: var(--sev-low); border-color: var(--sev-low); }
+    .group-title.gt-0 { color: var(--sev-info); border-color: var(--sev-info); }
+
+    /* Plugin cards */
+    .plugin { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 0 0 0.75rem; border-left: 4px solid var(--border); }
+    .plugin.sev-4 { border-left-color: var(--sev-crit); }
+    .plugin.sev-3 { border-left-color: var(--sev-high); }
+    .plugin.sev-2 { border-left-color: var(--sev-med); }
+    .plugin.sev-1 { border-left-color: var(--sev-low); }
+    .plugin.sev-0 { border-left-color: var(--sev-info); }
+    .plugin h2 { font-size: 1rem; margin: 0 0 0.35rem; font-weight: 600; }
+    .plugin .plugin-desc { font-size: 0.82rem; color: var(--text-dim); margin: 0 0 0.6rem; }
+
+    /* Badges */
+    .badges { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem; }
+    .badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; }
+    .badge-sev { border: 1px solid; }
+    .badge-sev-4 { color: var(--sev-crit); background: var(--sev-crit-bg); border-color: var(--sev-crit); }
+    .badge-sev-3 { color: var(--sev-high); background: var(--sev-high-bg); border-color: var(--sev-high); }
+    .badge-sev-2 { color: var(--sev-med); background: var(--sev-med-bg); border-color: var(--sev-med); }
+    .badge-sev-1 { color: var(--sev-low); background: var(--sev-low-bg); border-color: var(--sev-low); }
+    .badge-sev-0 { color: var(--sev-info); background: var(--sev-info-bg); border-color: var(--sev-info); }
+    .badge-st { border: 1px solid transparent; }
+    .badge-validated { color: var(--st-validated); background: var(--st-validated-bg); }
+    .badge-not_validated { color: var(--st-not-validated); background: var(--st-not-validated-bg); }
+    .badge-inconclusive { color: var(--st-inconclusive); background: var(--st-inconclusive-bg); }
+    .badge-other { color: var(--st-other); background: var(--st-other-bg); }
+
+    /* Evidence */
+    .evidence-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin-top: 0.6rem; margin-bottom: 0.2rem; font-weight: 600; }
+    .evidence-toggle { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; font-size: 0.8rem; color: var(--accent); padding: 0.2rem 0.5rem; border: 1px solid var(--accent-dim); border-radius: 4px; background: transparent; user-select: none; margin-top: 0.4rem; }
+    .evidence-toggle:hover { background: rgba(88,166,255,.1); }
+    .evidence-toggle .toggle-icon { font-weight: 700; }
+    .evidence-box { display: none; margin-top: 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.78rem; padding: 0.75rem 1rem; white-space: pre-wrap; word-break: break-word; line-height: 1.55; color: var(--text); }
     .evidence-box.visible { display: block; }
-    .evidence-label { font: 0.78rem/1.2 'Trebuchet MS', sans-serif; color: #6b5748; margin-top: 0.85rem; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; }
-    .ev-highlight { color: #cc0000; font-weight: 700; }
-    .full-output-toggle { font: 0.78rem/1.2 'Trebuchet MS', sans-serif; color: #888; cursor: pointer; margin-top: 0.5rem; display: inline-block; text-decoration: underline; }
-    .full-output-box { display: none; margin-top: 0.4rem; border-top: 1px dashed #ccc; padding-top: 0.5rem; white-space: pre-wrap; word-break: break-word; color: #444; }
+    .ev-highlight { color: var(--sev-crit); font-weight: 700; background: var(--sev-crit-bg); padding: 0.1rem 0.2rem; border-radius: 2px; }
+    .full-output-toggle { font-size: 0.75rem; color: var(--text-dim); cursor: pointer; margin-top: 0.4rem; display: inline-block; text-decoration: underline; }
+    .full-output-toggle:hover { color: var(--accent); }
+    .full-output-box { display: none; margin-top: 0.35rem; border-top: 1px dashed var(--border); padding-top: 0.5rem; white-space: pre-wrap; word-break: break-word; color: var(--text-dim); }
+
+    /* Tables */
+    .plugin details { margin-top: 0.5rem; }
+    .plugin details > summary { cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--accent); padding: 0.3rem 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.4rem; }
+    th, td { border: 1px solid var(--border); padding: 0.4rem 0.5rem; text-align: left; vertical-align: top; }
+    th { background: rgba(110,118,129,.1); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); }
+    td code { font-size: 0.75rem; white-space: pre-wrap; word-break: break-word; }
+
+    /* Status-colored table rows */
+    tr.row-validated td { background: var(--st-validated-bg); }
+    tr.row-not_validated td { background: var(--st-not-validated-bg); }
+    tr.row-inconclusive td { background: var(--st-inconclusive-bg); }
+
+    /* Status cell badges */
+    .st-cell { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; }
+    .st-cell-validated { color: var(--st-validated); background: var(--st-validated-bg); }
+    .st-cell-not_validated { color: var(--st-not-validated); background: var(--st-not-validated-bg); }
+    .st-cell-inconclusive { color: var(--st-inconclusive); background: var(--st-inconclusive-bg); }
+    .st-cell-other { color: var(--st-other); background: var(--st-other-bg); }
+
+    /* No results */
+    .no-results { text-align: center; padding: 3rem; color: var(--text-dim); font-size: 1rem; }
   </style>
 </head>
 <body>
-  <h1>REPORT_TITLE_PLACEHOLDER</h1>
-  <p>Latest result per plugin / host / port.</p>
+  <div class="header">
+    <h1>REPORT_TITLE_PLACEHOLDER</h1>
+    <div class="header-actions">
+      <button class="theme-btn" id="themeToggle">Toggle Light/Dark</button>
+    </div>
+  </div>
+
+  <div class="dashboard" id="dashboard"></div>
+
   <div class="toolbar">
-    <div><label for="pluginFilter">Plugin</label><input id="pluginFilter" placeholder="84502 or HSTS"></div>
+    <div><label for="pluginFilter">Plugin ID / Name</label><input id="pluginFilter" placeholder="84502 or HSTS"></div>
     <div><label for="findingFilter">Finding</label><input id="findingFilter" placeholder="certificate or openssh"></div>
     <div><label for="severityFilter">Severity</label><select id="severityFilter"><option value="">All</option><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option><option value="4">Critical</option></select></div>
     <div><label for="statusFilter">Status</label><select id="statusFilter"><option value="">All</option></select></div>
-    <div><label for="hostFilter">Host</label><input id="hostFilter" placeholder="host or domain"></div>
-    <div><label for="sourceFilter">Source</label><select id="sourceFilter"><option value="">All</option><option value="automation">automation</option><option value="manual">manual</option></select></div>
+    <div><label for="hostFilter">Host</label><input id="hostFilter" placeholder="10.0.0.1 or .local"></div>
+    <div><label for="sourceFilter">Source</label><select id="sourceFilter"><option value="">All</option><option value="automation">Automation</option><option value="manual">Manual</option></select></div>
     <div><label for="tpOnly">Focus</label><select id="tpOnly"><option value="">All results</option><option value="validated">True positives only</option></select></div>
   </div>
-  <div class="stats">
-    <div id="stats"></div>
-    <div class="actions">
-      <button class="button" id="exportCsv">Export Filtered CSV</button>
-    </div>
+
+  <div class="stats-bar">
+    <span class="stats-text" id="stats"></span>
+    <button class="btn" id="exportCsv">Export Filtered CSV</button>
   </div>
+
   <div id="plugins"></div>
+
   <script>
     const DATA = DATA_JSON_PLACEHOLDER
 ;
@@ -71,15 +182,70 @@
     const stats = document.getElementById('stats');
     const container = document.getElementById('plugins');
     const exportCsv = document.getElementById('exportCsv');
+    const themeToggle = document.getElementById('themeToggle');
+    const dashboard = document.getElementById('dashboard');
     let LAST_ROWS = [];
-    let LAST_PLUGIN_COUNT = 0;
 
+    // Theme
+    const saved = localStorage.getItem('nessus-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('nessus-theme', next);
+    });
+
+    // Populate status filter
     const statuses = [...new Set(DATA.flatMap(p => p.results.map(r => r.status)))].sort();
-    for (const status of statuses) {
+    for (const s of statuses) {
       const opt = document.createElement('option');
-      opt.value = status;
-      opt.textContent = status;
+      opt.value = s; opt.textContent = s;
       statusFilter.appendChild(opt);
+    }
+
+    // Build dashboard
+    function buildDashboard() {
+      const totals = { plugins: DATA.length, results: 0, validated: 0, not_validated: 0, inconclusive: 0 };
+      const sevCounts = { '4': 0, '3': 0, '2': 0, '1': 0 };
+      DATA.forEach(p => {
+        const sev = String(p.plugin_severity);
+        if (sev in sevCounts) sevCounts[sev]++;
+        p.results.forEach(r => {
+          totals.results++;
+          if (r.status === 'validated') totals.validated++;
+          else if (r.status === 'not_validated') totals.not_validated++;
+          else if (r.status === 'inconclusive') totals.inconclusive++;
+        });
+      });
+      dashboard.innerHTML = `
+        <div class="dash-card dc-total"><div class="dash-value">${totals.plugins}</div><div class="dash-label">Plugins</div></div>
+        <div class="dash-card dc-crit"><div class="dash-value">${sevCounts['4']}</div><div class="dash-label">Critical</div></div>
+        <div class="dash-card dc-high"><div class="dash-value">${sevCounts['3']}</div><div class="dash-label">High</div></div>
+        <div class="dash-card dc-med"><div class="dash-value">${sevCounts['2']}</div><div class="dash-label">Medium</div></div>
+        <div class="dash-card dc-low"><div class="dash-value">${sevCounts['1']}</div><div class="dash-label">Low</div></div>
+        <div class="dash-card dc-tp"><div class="dash-value">${totals.validated}</div><div class="dash-label">True Positives</div></div>
+        <div class="dash-card dc-fp"><div class="dash-value">${totals.not_validated}</div><div class="dash-label">False Positives</div></div>
+        <div class="dash-card dc-inc"><div class="dash-value">${totals.inconclusive}</div><div class="dash-label">Inconclusive</div></div>
+      `;
+    }
+    buildDashboard();
+
+    const sevNames = { '4': 'CRITICAL', '3': 'HIGH', '2': 'MEDIUM', '1': 'LOW', '0': 'INFO' };
+
+    function statusBadgeClass(status) {
+      if (status === 'validated' || status === 'not_validated' || status === 'inconclusive') return 'badge-' + status;
+      return 'badge-other';
+    }
+
+    function statusCellClass(status) {
+      if (status === 'validated' || status === 'not_validated' || status === 'inconclusive') return 'st-cell-' + status;
+      return 'st-cell-other';
+    }
+
+    function rowClass(status) {
+      if (status === 'validated' || status === 'not_validated' || status === 'inconclusive') return 'row-' + status;
+      return '';
     }
 
     function render() {
@@ -91,9 +257,8 @@
       const sourceNeedle = sourceFilter.value;
       const tpOnlyNeedle = tpOnly.value;
 
-      let renderedPlugins = 0;
-      let renderedRows = 0;
-      const groupedSections = {"4": [], "3": [], "2": [], "1": [], "-": []};
+      let renderedPlugins = 0, renderedRows = 0;
+      const groupedSections = {"4": [], "3": [], "2": [], "1": [], "0": [], "-": []};
       LAST_ROWS = [];
 
       DATA.forEach(plugin => {
@@ -101,9 +266,7 @@
         const findingMatch = !findingNeedle || `${plugin.plugin_name} ${plugin.plugin_summary}`.toLowerCase().includes(findingNeedle);
         const severityMatch = !severityNeedle || String(plugin.plugin_severity) === severityNeedle;
         let rows = plugin.results.filter(row => {
-          if (!pluginMatch) return false;
-          if (!findingMatch) return false;
-          if (!severityMatch) return false;
+          if (!pluginMatch || !findingMatch || !severityMatch) return false;
           if (tpOnlyNeedle && row.status !== tpOnlyNeedle) return false;
           if (statusNeedle && row.status !== statusNeedle) return false;
           if (hostNeedle && !row.host.toLowerCase().includes(hostNeedle)) return false;
@@ -111,21 +274,15 @@
           return true;
         });
         if (!rows.length) return;
-        renderedPlugins += 1;
+        renderedPlugins++;
         renderedRows += rows.length;
         for (const row of rows) {
-          LAST_ROWS.push({
-            plugin_id: plugin.plugin_id,
-            plugin_name: plugin.plugin_name,
-            plugin_summary: plugin.plugin_summary,
-            plugin_severity: plugin.plugin_severity,
-            ...row,
-          });
+          LAST_ROWS.push({ plugin_id: plugin.plugin_id, plugin_name: plugin.plugin_name, plugin_summary: plugin.plugin_summary, plugin_severity: plugin.plugin_severity, ...row });
         }
-        const summary = Object.entries(rows.reduce((acc, row) => {
-          acc[row.status] = (acc[row.status] || 0) + 1;
-          return acc;
-        }, {})).sort((a, b) => a[0].localeCompare(b[0]));
+
+        const summary = Object.entries(rows.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {})).sort((a, b) => a[0].localeCompare(b[0]));
+        const sev = String(plugin.plugin_severity);
+        const sevLabel = sevNames[sev] || 'SEV-' + sev;
 
         const uid = `ev-${plugin.plugin_id}`;
         const sample = plugin.validated_sample;
@@ -134,22 +291,16 @@
           const terms = sample.highlight_terms || [];
           const rawOutput = sample.stdout || '(no output captured)';
           const relevant = sample.relevant_lines || [];
-
           let primaryText, secondaryText;
           if (relevant.length > 0 && rawOutput.split('\n').length > relevant.length + 3) {
-            primaryText = relevant.join('\n');
-            secondaryText = rawOutput;
+            primaryText = relevant.join('\n'); secondaryText = rawOutput;
           } else {
-            primaryText = rawOutput;
-            secondaryText = null;
+            primaryText = rawOutput; secondaryText = null;
           }
-
           const highlightedPrimary = highlightEvidence(escapeHtml(primaryText), terms);
           const fullOutputHtml = secondaryText
             ? `<span class="full-output-toggle" onclick="toggleFullOutput('${uid}')">Show full output (${rawOutput.split('\n').length} lines)</span>
-               <div class="full-output-box" id="full-${uid}">${highlightEvidence(escapeHtml(secondaryText), terms)}</div>`
-            : '';
-
+               <div class="full-output-box" id="full-${uid}">${highlightEvidence(escapeHtml(secondaryText), terms)}</div>` : '';
           evidenceHtml = `
             <div class="evidence-label">Validated evidence &mdash; ${escapeHtml(String(sample.host))}:${escapeHtml(String(sample.port))}</div>
             <div class="evidence-toggle" id="toggle-${uid}" onclick="toggleEvidence('${uid}')">
@@ -162,29 +313,24 @@ ${fullOutputHtml}</div>`;
         }
 
         const sectionHtml = `
-          <section class="plugin">
-            <h2>${plugin.plugin_id} - ${escapeHtml(plugin.plugin_name)}</h2>
-            <p>${escapeHtml(plugin.plugin_summary)}</p>
-            <ul class="chips">
-              <li class="chip sev-${escapeHtml(String(plugin.plugin_severity))}">severity ${escapeHtml(String(plugin.plugin_severity))}</li>
-              ${summary.map(([status, count]) => `<li class="chip">${escapeHtml(status)}: ${count}</li>`).join('')}
-            </ul>
+          <section class="plugin sev-${escapeHtml(sev)}">
+            <h2>${plugin.plugin_id} &mdash; ${escapeHtml(plugin.plugin_name)}</h2>
+            <p class="plugin-desc">${escapeHtml(plugin.plugin_summary)}</p>
+            <div class="badges">
+              <span class="badge badge-sev badge-sev-${escapeHtml(sev)}">${sevLabel}</span>
+              ${summary.map(([st, cnt]) => `<span class="badge badge-st ${statusBadgeClass(st)}">${escapeHtml(st)}: ${cnt}</span>`).join('')}
+            </div>
             ${evidenceHtml}
-            <details style="margin-top:0.85rem">
+            <details>
               <summary>Show ${rows.length} result rows</summary>
               <table>
-                <thead>
-                  <tr>
-                    <th>Host</th><th>Port</th><th>Status</th><th>Reason</th>
-                    <th>Analyst Note</th><th>Source</th><th>Executed At</th><th>Command</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Host</th><th>Port</th><th>Status</th><th>Reason</th><th>Analyst Note</th><th>Source</th><th>Executed At</th><th>Command</th></tr></thead>
                 <tbody>
                   ${rows.slice(0, 200).map(row => `
-                    <tr>
+                    <tr class="${rowClass(row.status)}">
                       <td>${escapeHtml(String(row.host))}</td>
                       <td>${escapeHtml(String(row.port))}</td>
-                      <td>${escapeHtml(row.status)}</td>
+                      <td><span class="st-cell ${statusCellClass(row.status)}">${escapeHtml(row.status)}</span></td>
                       <td>${escapeHtml(row.reason)}</td>
                       <td>${escapeHtml(row.analyst_note)}</td>
                       <td>${escapeHtml(row.source)}</td>
@@ -195,81 +341,50 @@ ${fullOutputHtml}</div>`;
                 </tbody>
               </table>
             </details>
-          </section>
-        `;
-        groupedSections[String(plugin.plugin_severity) || "-"].push(sectionHtml);
+          </section>`;
+        const key = sev in groupedSections ? sev : "-";
+        groupedSections[key].push(sectionHtml);
       });
 
-      LAST_PLUGIN_COUNT = renderedPlugins;
       const severityOrder = [
-        ["4", "Critical Severity"],
-        ["3", "High Severity"],
-        ["2", "Medium Severity"],
-        ["1", "Low Severity"],
-        ["-", "Unscored"],
+        ["4", "Critical Severity", "gt-4"],
+        ["3", "High Severity", "gt-3"],
+        ["2", "Medium Severity", "gt-2"],
+        ["1", "Low Severity", "gt-1"],
+        ["0", "Informational", "gt-0"],
+        ["-", "Unscored", ""],
       ];
       const sections = severityOrder
-        .filter(([severity]) => groupedSections[severity].length)
-        .map(([severity, title]) => `
-          <div class="group-title">${title}</div>
-          ${groupedSections[severity].join('')}
-        `)
-        .join('');
+        .filter(([sev]) => groupedSections[sev] && groupedSections[sev].length)
+        .map(([sev, title, cls]) => `
+          <div class="group-title ${cls}">${title} (${groupedSections[sev].length})</div>
+          ${groupedSections[sev].join('')}
+        `).join('');
 
-      stats.textContent = `${renderedPlugins} plugins, ${renderedRows} visible results`;
-      container.innerHTML = sections || '<p>No results match the current filters.</p>';
+      stats.textContent = `${renderedPlugins} plugins \u00b7 ${renderedRows} results`;
+      container.innerHTML = sections || '<div class="no-results">No results match the current filters.</div>';
     }
 
     function exportFilteredCsv() {
-      const header = [
-        "plugin_id",
-        "plugin_name",
-        "plugin_summary",
-        "plugin_severity",
-        "host",
-        "port",
-        "status",
-        "reason",
-        "analyst_note",
-        "source",
-        "executed_at",
-        "command",
-      ];
+      const header = ["plugin_id","plugin_name","plugin_summary","plugin_severity","host","port","status","reason","analyst_note","source","executed_at","command"];
       const lines = [header.join(",")];
       for (const row of LAST_ROWS) {
-        lines.push([
-          row.plugin_id,
-          row.plugin_name,
-          row.plugin_summary,
-          row.plugin_severity,
-          row.host,
-          row.port,
-          row.status,
-          row.reason,
-          row.analyst_note,
-          row.source,
-          row.executed_at,
-          row.command,
-        ].map(csvEscape).join(","));
+        lines.push([row.plugin_id, row.plugin_name, row.plugin_summary, row.plugin_severity, row.host, row.port, row.status, row.reason, row.analyst_note, row.source, row.executed_at, row.command].map(csvEscape).join(","));
       }
       const blob = new Blob([lines.join("\n") + "\n"], {type: "text/csv;charset=utf-8"});
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "nessus-filtered-results.csv";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement("a"); a.href = url; a.download = "nessus-filtered-results.csv";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
 
     function toggleEvidence(uid) {
       const toggle = document.getElementById('toggle-' + uid);
-      const box    = document.getElementById('box-' + uid);
+      const box = document.getElementById('box-' + uid);
       if (!toggle || !box) return;
       const opening = !box.classList.contains('visible');
       box.classList.toggle('visible', opening);
-      toggle.querySelector('.toggle-icon').textContent = opening ? '−' : '+';
+      toggle.querySelector('.toggle-icon').textContent = opening ? '\u2212' : '+';
     }
 
     function toggleFullOutput(uid) {
@@ -290,32 +405,17 @@ ${fullOutputHtml}</div>`;
       for (const term of terms) {
         if (!term) continue;
         const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        try {
-          result = result.replace(
-            new RegExp('(' + escaped + ')', 'gi'),
-            '<span class="ev-highlight">$1</span>'
-          );
-        } catch (e) { /* skip malformed term */ }
+        try { result = result.replace(new RegExp('(' + escaped + ')', 'gi'), '<span class="ev-highlight">$1</span>'); } catch(e) {}
       }
       return result;
     }
 
-    function csvEscape(value) {
-      const text = String(value ?? "");
-      return `"${text.replaceAll('"', '""')}"`;
-    }
+    function csvEscape(value) { const t = String(value ?? ""); return `"${t.replaceAll('"', '""')}"`; }
+    function escapeHtml(value) { return value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'); }
 
-    function escapeHtml(value) {
-      return value
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;');
-    }
-
-    [pluginFilter, findingFilter, severityFilter, statusFilter, hostFilter, sourceFilter, tpOnly].forEach(node => {
-      node.addEventListener('input', render);
-      node.addEventListener('change', render);
+    [pluginFilter, findingFilter, severityFilter, statusFilter, hostFilter, sourceFilter, tpOnly].forEach(n => {
+      n.addEventListener('input', render);
+      n.addEventListener('change', render);
     });
     exportCsv.addEventListener('click', exportFilteredCsv);
     render();

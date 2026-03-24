@@ -35,7 +35,23 @@ from nessus_parser.services.scans import (
     list_findings,
     list_plugins,
 )
+from nessus_parser.core.colors import (
+    bold,
+    bright_cyan,
+    bright_red,
+    bright_yellow,
+    cyan,
+    dim,
+    green,
+    heavy_separator,
+    red,
+    separator,
+    severity_badge,
+    status_badge,
+    yellow,
+)
 from nessus_parser.services.validation import (
+    build_summary_banner,
     get_matching_scan_playbook_ids,
     list_projects,
     validate_plugin,
@@ -195,24 +211,32 @@ def main() -> None:
                 total = len(matching_plugin_ids)
                 playbook_names = {pid: name for pid, name, _ in list_playbooks(DB_PATH)}
                 reports: list[str] = []
+                agg_status: dict[str, int] = {}
+                agg_targets = 0
                 for index, plugin_id in enumerate(matching_plugin_ids, start=1):
                     name = playbook_names.get(plugin_id, "")
                     label = f"{plugin_id} ({name})" if name else str(plugin_id)
+                    pct = index / total * 100
                     print(
-                        f"[{index}/{total}] validating {label}",
+                        f"{bright_cyan(f'[{index}/{total}]')} {dim(f'({pct:.0f}%)')} validating {bold(label)}",
                         file=sys.stderr,
                         flush=True,
                     )
-                    reports.append(
-                        validate_scan_file(
-                            DB_PATH,
-                            args.scan_file,
-                            plugin_id,
-                            persist_results=True,
-                            project_name=project_name,
-                        )
+                    report = validate_scan_file(
+                        DB_PATH,
+                        args.scan_file,
+                        plugin_id,
+                        persist_results=True,
+                        project_name=project_name,
                     )
+                    reports.append(report)
+                    # Collect aggregate stats from validation results
+                    summary = get_validation_summary(DB_PATH, plugin_id, project_name=project_name)
+                    for status, count in summary:
+                        agg_status[status] = agg_status.get(status, 0) + count
+                        agg_targets += count
                 output = "\n\n".join(reports)
+                output += build_summary_banner(total, agg_status, agg_targets)
         if args.output_path is not None:
             args.output_path.parent.mkdir(parents=True, exist_ok=True)
             args.output_path.write_text(output + "\n")
@@ -377,12 +401,20 @@ def main() -> None:
             return
         playbook_names = {pid: name for pid, name, _ in list_playbooks(DB_PATH)}
         total = len(plugin_ids)
+        agg_status: dict[str, int] = {}
+        agg_targets = 0
         for index, plugin_id in enumerate(plugin_ids, start=1):
             name = playbook_names.get(plugin_id, "")
             label = f"{plugin_id} ({name})" if name else str(plugin_id)
-            print(f"[{index}/{total}] validating {label}", file=sys.stderr, flush=True)
-            print(f"== plugin_id {plugin_id} ==")
+            pct = index / total * 100
+            print(f"{bright_cyan(f'[{index}/{total}]')} {dim(f'({pct:.0f}%)')} validating {bold(label)}", file=sys.stderr, flush=True)
+            print(separator())
             print(validate_plugin(DB_PATH, plugin_id, project_name=project_name))
+            summary = get_validation_summary(DB_PATH, plugin_id, project_name=project_name)
+            for status, count in summary:
+                agg_status[status] = agg_status.get(status, 0) + count
+                agg_targets += count
+        print(build_summary_banner(total, agg_status, agg_targets))
         return
 
     if args.command == "sanitize-db":
