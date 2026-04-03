@@ -575,6 +575,14 @@ def audit_playbooks(db_path: Path) -> list[dict[str, object]]:
 
         conclusive = has_validated_if or has_validated_if_absent or has_version_rule
 
+        # Detect multi-branch fixed_version (slash-separated) — handled correctly
+        # by the engine since the multi-branch fix; flag here only if fixed_version
+        # is present with NO affected_lt/lte (nothing to trigger validated path).
+        version_warning: str | None = None
+        fv = version_rule.get("fixed_version") if version_rule else None
+        if fv and "/" in str(fv) and not version_rule.get("affected_lt") and not version_rule.get("affected_lte"):
+            version_warning = "multi_branch_fixed_version_no_affected_lt"
+
         results.append({
             "plugin_id": plugin_id,
             "finding_name": finding_name,
@@ -585,6 +593,7 @@ def audit_playbooks(db_path: Path) -> list[dict[str, object]]:
             "has_not_validated_if": has_not_validated_if,
             "has_fallback_commands": has_fallback_commands,
             "conclusive": conclusive,
+            "version_warning": version_warning,
         })
 
     return results

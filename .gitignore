@@ -11,3 +11,5 @@ dist/
 build/
 .claude/
 *.egg-info/
+# Generated HTML reports at root level (templates live under src/)
+/*.html

@@ -937,10 +937,39 @@ def _derive_version_rule_status(
         return "validated", f"detected_version={extracted_version}"
 
     fixed_version = version_rule.get("fixed_version")
-    if fixed_version and _compare_versions(extracted_version, str(fixed_version)) >= 0:
-        return "not_validated", f"detected_version={extracted_version}"
+    if fixed_version:
+        # fixed_version may be slash-separated for multi-branch products
+        # (e.g. "7.4.17 / 7.13.7 / 7.18.1" for Confluence).  For each branch
+        # fix, check whether the detected version is in the same major.minor
+        # branch AND is >= that branch's fix.  If so, the installed version is
+        # patched.  If no branch matched, fall through to a simple global
+        # comparison against the highest listed fix.
+        branch_fixes = [v.strip() for v in str(fixed_version).split("/") if v.strip()]
+        for branch_fix in branch_fixes:
+            if _same_version_branch(extracted_version, branch_fix):
+                if _compare_versions(extracted_version, branch_fix) >= 0:
+                    return "not_validated", f"detected_version={extracted_version}"
+                # Same branch but older than the fix — confirmed vulnerable
+                return "validated", f"detected_version={extracted_version}"
+        # No branch matched (version outside every listed fix branch); compare
+        # against the last (highest) listed fix as a fallback.
+        if _compare_versions(extracted_version, branch_fixes[-1]) >= 0:
+            return "not_validated", f"detected_version={extracted_version}"
 
     return "not_validated", f"detected_version={extracted_version}"
+
+
+def _same_version_branch(detected: str, fixed: str, depth: int = 2) -> bool:
+    """Return True if detected and fixed share the same major.minor (or major.update) branch.
+
+    Uses the first `depth` tokenized components for the comparison so that
+    e.g. "7.4.16" and "7.4.17" are in the same branch, while "7.4.16" and
+    "7.13.7" are not.
+    """
+    d_parts = _tokenize_version(detected)
+    f_parts = _tokenize_version(fixed)
+    n = min(depth, min(len(d_parts), len(f_parts)))
+    return n > 0 and all(d_parts[i] == f_parts[i] for i in range(n))
 
 
 def _compare_versions(left: str, right: str) -> int:

@@ -339,6 +339,7 @@ def main() -> None:
         conclusive_count = sum(1 for e in entries if e["conclusive"])
         no_conclusive_count = total - conclusive_count
         no_fallback_count = sum(1 for e in entries if not e["has_fallback_commands"])
+        version_warning_count = sum(1 for e in entries if e.get("version_warning"))
 
         print(heavy_separator())
         print(bold(bright_cyan("  PLAYBOOK AUDIT")))
@@ -347,6 +348,8 @@ def main() -> None:
         print(f"  {bold('Conclusive criteria:')}     {green(str(conclusive_count))}")
         print(f"  {bold('No conclusive criteria:')}  {bright_red(str(no_conclusive_count))} — will always produce inconclusive/error results")
         print(f"  {bold('No fallback commands:')}    {yellow(str(no_fallback_count))}")
+        if version_warning_count:
+            print(f"  {bold('Version warnings:')}        {bright_yellow(str(version_warning_count))} — multi-branch fixed_version without affected_lt/lte")
         print(heavy_separator())
 
         for entry in entries:
@@ -359,6 +362,8 @@ def main() -> None:
                 flags.append(yellow("NO_FALLBACK"))
             if not entry["has_not_validated_if"]:
                 flags.append(dim("NO_FP_CRITERIA"))
+            if entry.get("version_warning"):
+                flags.append(bright_yellow(f"WARN:{entry['version_warning']}"))
             flag_str = "  ".join(flags) if flags else green("ok")
             print(f"  {bold(str(pid))}\t{dim(str(name)[:60])}\t{flag_str}")
         return
